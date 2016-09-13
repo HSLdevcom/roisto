@@ -1,0 +1,8 @@
+-r common.in
+behave
+flake8
+pip-tools
+pylint
+pytest
+tox
+yapf
