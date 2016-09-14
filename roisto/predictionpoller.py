@@ -20,11 +20,13 @@ def _minutes_to_hours_string(minutes):
     if minutes < 0:
         sign = '-'
     hours, minutes_left = divmod(abs(minutes), MINUTES_IN_HOUR)
-    return '{sign}{hours:02d}:{minutes:02d}'.format(sign=sign, hours=hours, minutes=minutes_left)
+    return '{sign}{hours:02d}:{minutes:02d}'.format(
+        sign=sign, hours=hours, minutes=minutes_left)
 
 
 def _combine_into_timestamp(naive_datetime, utc_offset_minutes):
-    return naive_datetime.isoformat() + _minutes_to_hours_string(utc_offset_minutes)
+    return (naive_datetime.isoformat() +
+            _minutes_to_hours_string(utc_offset_minutes))
 
 
 def _connect_and_query(connect, query):
@@ -75,8 +77,10 @@ class PredictionPoller:
         self._utc_offsets = {}
 
         # Query intervals.
-        self._stop_query_interval_in_seconds = util.convert_duration_to_seconds(config['stop_query_interval'])
-        self._line_query_interval_in_seconds = util.convert_duration_to_seconds(config['line_query_interval'])
+        self._stop_query_interval_in_seconds = util.convert_duration_to_seconds(
+            config['stop_query_interval'])
+        self._line_query_interval_in_seconds = util.convert_duration_to_seconds(
+            config['line_query_interval'])
 
     # FIXME: Use or remove.
     ## Example usage:
@@ -89,7 +93,7 @@ class PredictionPoller:
     #        LOG.warning('SQL error: ' + str(ex))
     #    except pymssql.Warning as ex:
     #        LOG.warning('SQL warning: ' + str(ex))
-    #    return await asyncio.sleep(sleep_in_seconds)
+    #    return await self._async_helper.sleep(sleep_in_seconds)
 
     async def _keep_polling_stops(self):
         STOP_QUERY = """
@@ -108,7 +112,8 @@ class PredictionPoller:
                 LOG.warning('SQL error: ' + str(ex))
             except pymssql.Warning as ex:
                 LOG.warning('SQL warning: ' + str(ex))
-            await asyncio.sleep(self._stop_query_interval_in_seconds)
+            await self._async_helper.sleep(
+                self._stop_query_interval_in_seconds)
 
     async def _keep_polling_lines(self):
         LINE_QUERY = """
@@ -165,10 +170,11 @@ class PredictionPoller:
         """
         while True:
             now = datetime.datetime.utcnow()
-            past_utc = _timestamp_day_shift(now, PredictionPoller._AT_LEAST_DAYS_BACK_SHIFT)
-            future_utc = _timestamp_day_shift(now, PredictionPoller._AT_MOST_DAYS_FORWARD_SHIFT)
-            query = LINE_QUERY.format(past_utc=past_utc,
-                                      future_utc=future_utc)
+            past_utc = _timestamp_day_shift(
+                now, PredictionPoller._AT_LEAST_DAYS_BACK_SHIFT)
+            future_utc = _timestamp_day_shift(
+                now, PredictionPoller._AT_MOST_DAYS_FORWARD_SHIFT)
+            query = LINE_QUERY.format(past_utc=past_utc, future_utc=future_utc)
             try:
                 result = await self._async_helper.run_in_executor(
                     _connect_and_query, self._doi_connect, query)
@@ -184,7 +190,8 @@ class PredictionPoller:
                 LOG.warning('SQL error: ' + str(ex))
             except pymssql.Warning as ex:
                 LOG.warning('SQL warning: ' + str(ex))
-            await asyncio.sleep(self._line_query_interval_in_seconds)
+            await self._async_helper.sleep(
+                self._line_query_interval_in_seconds)
 
     async def _keep_polling_utc_offsets(self):
         UTC_OFFSET_QUERY = """
@@ -199,10 +206,12 @@ class PredictionPoller:
         """
         while True:
             now = datetime.datetime.utcnow()
-            past_utc = _timestamp_day_shift(now, PredictionPoller._AT_LEAST_DAYS_BACK_SHIFT)
-            future_utc = _timestamp_day_shift(now, PredictionPoller._AT_MOST_DAYS_FORWARD_SHIFT)
-            query = UTC_OFFSET_QUERY.format(past_utc=past_utc,
-                                            future_utc=future_utc)
+            past_utc = _timestamp_day_shift(
+                now, PredictionPoller._AT_LEAST_DAYS_BACK_SHIFT)
+            future_utc = _timestamp_day_shift(
+                now, PredictionPoller._AT_MOST_DAYS_FORWARD_SHIFT)
+            query = UTC_OFFSET_QUERY.format(
+                past_utc=past_utc, future_utc=future_utc)
             try:
                 result = await self._async_helper.run_in_executor(
                     _connect_and_query, self._roi_connect, query)
@@ -211,12 +220,14 @@ class PredictionPoller:
                 LOG.warning('SQL error: ' + str(ex))
             except pymssql.Warning as ex:
                 LOG.warning('SQL warning: ' + str(ex))
-            await asyncio.sleep(self._utc_offset_query_interval_in_seconds)
+            await self._async_helper.sleep(
+                self._utc_offset_query_interval_in_seconds)
 
     def _gather_predictions_per_stop(self, result):
         predictions_by_stop = {}
         # FIXME: Check for initialization only once in a cleaner way.
-        if self._stops is not None and self._lines is not None and self._utc_offsets is not None:
+        if (self._stops is not None and self._lines is not None and
+                self._utc_offsets is not None):
             for row in result:
                 dvj = row[1]
                 line_info = self._lines.get(dvj, None)
@@ -242,8 +253,10 @@ class PredictionPoller:
                 scheduled_naive = row[3]
                 predicted_naive = row[4]
                 start_time = _combine_into_timestamp(start_naive, utc_offset)
-                scheduled_time = _combine_into_timestamp(scheduled_naive, utc_offset)
-                predicted_time = _combine_into_timestamp(predicted_naive, utc_offset)
+                scheduled_time = _combine_into_timestamp(scheduled_naive,
+                                                         utc_offset)
+                predicted_time = _combine_into_timestamp(predicted_naive,
+                                                         utc_offset)
                 prediction = {
                     'joreStopId': stop,
                     'joreLineId': line_info['JoreLineId'],
@@ -264,8 +277,10 @@ class PredictionPoller:
         PREDICTION_QUERY = """
             SELECT
                 CONVERT(CHAR(16), Arrival.Id) AS ArrivalId,
-                CONVERT(CHAR(16), DatedVehicleJourney.Id) AS DatedVehicleJourneyId,
-                CONVERT(CHAR(16), Arrival.IsTargetedAtJourneyPatternPointGid) AS JourneyPatternPointGid,
+                CONVERT(CHAR(16), DatedVehicleJourney.Id)
+                AS DatedVehicleJourneyId,
+                CONVERT(CHAR(16), Arrival.IsTargetedAtJourneyPatternPointGid)
+                AS JourneyPatternPointGid,
                 Arrival.TimetabledLatestDateTime,
                 Arrival.EstimatedDateTime,
                 Arrival.LastModifiedUTCDateTime
@@ -279,15 +294,18 @@ class PredictionPoller:
                 AND Arrival.LastModifiedUTCDateTime IS NOT NULL
         """
         now = datetime.datetime.utcnow()
-        modified_utc_dt = now - datetime.timedelta(seconds=self._prediction_query_interval_in_seconds)
+        modified_utc_dt = (now - datetime.timedelta(
+            seconds=self._prediction_query_interval_in_seconds))
         while True:
-            modified_utc = modified_utc_dt.strftime('%Y%m%d %H:%M:%S.') + modified_utc_dt.strftime('%f')[:3]
+            modified_utc = (modified_utc_dt.strftime('%Y%m%d %H:%M:%S.') +
+                            modified_utc_dt.strftime('%f')[:3])
             query = PREDICTION_QUERY.format(modified_utc=modified_utc)
             await self._async_helper.wait_for_event(self._is_mqtt_connected)
             try:
                 result = await self._async_helper.run_in_executor(
                     _connect_and_query, self._roi_connect, query)
-                message_timestamp = isodate.datetime_isoformat(datetime.datetime.utcnow())
+                message_timestamp = isodate.datetime_isoformat(
+                    datetime.datetime.utcnow())
                 # We will get the latest predictions again next time but it is
                 # more important not to miss any predictions than to not repeat
                 # predictions.
@@ -308,7 +326,8 @@ class PredictionPoller:
                 LOG.warning('SQL error: ' + str(ex))
             except pymssql.Warning as ex:
                 LOG.warning('SQL warning: ' + str(ex))
-            await asyncio.sleep(self._prediction_query_interval_in_seconds)
+            await self._async_helper.sleep(
+                self._prediction_query_interval_in_seconds)
 
     async def run(self):
         tasks = [
