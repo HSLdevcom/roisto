@@ -18,7 +18,7 @@ class MQTTPublisher:
 
         self._host = config['host']
         self._port = config['port']
-        self._topic = config['topic']
+        self._topic_prefix = config['topic_prefix']
         self._qos = config['qos']
 
         self._client = self._create_client(config)
@@ -48,7 +48,7 @@ class MQTTPublisher:
         while True:
             topic, payload = await self._queue.get()
             self._client.publish(
-                topic, payload=payload, qos=self._qos, retain=False)
+                self._topic_prefix + topic, payload=payload, qos=self._qos, retain=False)
 
     async def run(self):
         """Run the MQTTPublisher."""
