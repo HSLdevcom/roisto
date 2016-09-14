@@ -52,6 +52,7 @@ class MQTTPublisher:
 
     async def run(self):
         """Run the MQTTPublisher."""
+        LOG.debug('MQTTPublisher runs.')
         self._client.connect_async(self._host, port=self._port)
         self._client.loop_start()
         await self._async_helper.wait_for_event(self._is_mqtt_connected)

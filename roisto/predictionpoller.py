@@ -330,6 +330,8 @@ class PredictionPoller:
                 self._prediction_query_interval_in_seconds)
 
     async def run(self):
+        """Run the PredictionPoller."""
+        LOG.debug('PredictionPoller runs.')
         tasks = [
             self._keep_polling_stops(),
             self._keep_polling_lines(),
