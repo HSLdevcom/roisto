@@ -89,19 +89,6 @@ class PredictionPoller:
         self._prediction_query_interval_in_seconds = util.convert_duration_to_seconds(
             config['prediction_query_interval'])
 
-    # FIXME: Use or remove.
-    ## Example usage:
-    ## await self._process_and_sleep(roi_connect, query_string, handle_utc_offsets, self._utc_offset_query_interval_in_seconds)
-    #async def _process_and_sleep(self, connect, query_string, handle_result, sleep_in_seconds):
-    #    try:
-    #        result = await self._async_helper.run_in_executor(_connect_and_query, connect, query_string)
-    #        handle_result(result)
-    #    except pymssql.Error as ex:
-    #        LOG.warning('SQL error: ' + str(ex))
-    #    except pymssql.Warning as ex:
-    #        LOG.warning('SQL warning: ' + str(ex))
-    #    return await self._async_helper.sleep(sleep_in_seconds)
-
     async def _keep_polling_stops(self):
         STOP_QUERY = """
             SELECT
