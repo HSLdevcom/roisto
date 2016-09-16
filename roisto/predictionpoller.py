@@ -312,18 +312,17 @@ class PredictionPoller:
         now = datetime.datetime.utcnow()
         modified_utc_dt = (now - datetime.timedelta(
             seconds=self._prediction_query_interval_in_seconds))
+        handled_arrival_ids = set()
         while True:
             modified_utc = (modified_utc_dt.strftime('%Y%m%d %H:%M:%S.') +
                             modified_utc_dt.strftime('%f')[:3])
             query = PREDICTION_QUERY.format(modified_utc=modified_utc)
             await self._async_helper.wait_for_event(self._is_mqtt_connected)
             LOG.debug('Querying predictions from ROI:' + query)
-            handled_arrival_ids = set()
             try:
                 result = await self._async_helper.run_in_executor(
                     _connect_and_query, self._roi_connect, query)
                 pre_len = len(result)
-                # FIXME: bug in here, nothing is excluded
                 result = [row for row in result if not (row[6] == modified_utc_dt and row[0] in handled_arrival_ids)]
                 LOG.debug('Got {pre_len} predictions of which {post_len} were new.'.format(pre_len=pre_len, post_len=len(result)))
                 message_timestamp = _combine_into_timestamp(datetime.datetime.utcnow(), 0)
