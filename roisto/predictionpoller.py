@@ -336,7 +336,7 @@ class PredictionPoller:
                 modified_utc_dt = max(row[6] for row in result)
                 LOG.debug('modified_utc_dt is ' + str(modified_utc_dt))
                 LOG.debug('minimum modified_utc_dt is ' + str(min(row[6] for row in result)))
-                handled_arrival_ids = set(row[0] for row in result if row[6] == modified_utc_dt)
+                handled_arrival_ids = {row[0] for row in result if row[6] == modified_utc_dt}
                 LOG.debug('handled_arrival_ids is ' + str(handled_arrival_ids))
 
                 predictions_by_stop = self._gather_predictions_per_stop(result)
