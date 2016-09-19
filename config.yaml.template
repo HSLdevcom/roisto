@@ -1,0 +1,34 @@
+pubtrans:
+    host: 'MY_PUBTRANS_SERVER.com'
+    port: 1433
+    username: 'MY_PUBTRANS_USERNAME'
+    password: 'MY_PUBTRANS_PASSWORD'
+    stop_query_interval: 'PT6H'
+    journey_query_interval: 'PT6H'
+    utc_offset_query_interval: 'PT6H'
+    prediction_query_interval: 'PT10S'
+    doi_database: &doi 'PUBTRANS_DOI_DATABASE_NAME'
+    roi_database: &roi 'PUBTRANS_ROI_DATABASE_NAME'
+    tds_version: '7.2'
+mqtt:
+    host: 'MY_MQTT_BROKER.com'
+    port: 1883
+    topic_prefix: 'publish/everything/here/'
+    qos: 2
+    client_id: 'MY_MQTT_CLIENT_ID'
+logging:
+    version: 1
+    formatters:
+        utc:
+            (): 'roisto.utcformatter.UTCFormatter'
+            format: '%(asctime)s.%(msecs)03dZ %(name)s: %(levelname)s: %(message)s'
+            datefmt: '%Y-%m-%dT%H:%M:%S'
+    handlers:
+        console:
+            class: 'logging.StreamHandler'
+            formatter: 'utc'
+    root:
+        handlers:
+            - 'console'
+        level: 'DEBUG'
+    disable_existing_loggers: False
