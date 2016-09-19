@@ -325,28 +325,29 @@ class PredictionPoller:
                 pre_len = len(result)
                 result = [row for row in result if not (row[6] == modified_utc_dt and row[0] in handled_arrival_ids)]
                 LOG.debug('Got {pre_len} predictions of which {post_len} were new.'.format(pre_len=pre_len, post_len=len(result)))
-                message_timestamp = _combine_into_timestamp(datetime.datetime.utcnow(), 0)
-                # We will get the latest predictions again next time but it is
-                # more important not to miss any predictions than to not repeat
-                # predictions.
-                #
-                # Note that at least on 2016-09-13 the Microsoft SQL Server
-                # datetime data type has less than a millisecond precision due
-                # to rounding.
-                modified_utc_dt = max(row[6] for row in result)
-                LOG.debug('modified_utc_dt is ' + str(modified_utc_dt))
-                LOG.debug('minimum modified_utc_dt is ' + str(min(row[6] for row in result)))
-                handled_arrival_ids = {row[0] for row in result if row[6] == modified_utc_dt}
-                LOG.debug('handled_arrival_ids is ' + str(handled_arrival_ids))
+                if result:
+                    message_timestamp = _combine_into_timestamp(datetime.datetime.utcnow(), 0)
+                    # We will get the latest predictions again next time but it is
+                    # more important not to miss any predictions than to not repeat
+                    # predictions.
+                    #
+                    # Note that at least on 2016-09-13 the Microsoft SQL Server
+                    # datetime data type has less than a millisecond precision due
+                    # to rounding.
+                    modified_utc_dt = max(row[6] for row in result)
+                    LOG.debug('modified_utc_dt is ' + str(modified_utc_dt))
+                    LOG.debug('minimum modified_utc_dt is ' + str(min(row[6] for row in result)))
+                    handled_arrival_ids = {row[0] for row in result if row[6] == modified_utc_dt}
+                    LOG.debug('handled_arrival_ids is ' + str(handled_arrival_ids))
 
-                predictions_by_stop = self._gather_predictions_per_stop(result)
-                for stop_id, predictions in predictions_by_stop.items():
-                    topic_suffix = stop_id
-                    message = {
-                        'messageTimestamp': message_timestamp,
-                        'predictions': predictions,
-                    }
-                    await self._queue.put((topic_suffix, json.dumps(message)))
+                    predictions_by_stop = self._gather_predictions_per_stop(result)
+                    for stop_id, predictions in predictions_by_stop.items():
+                        topic_suffix = stop_id
+                        message = {
+                            'messageTimestamp': message_timestamp,
+                            'predictions': predictions,
+                        }
+                        await self._queue.put((topic_suffix, json.dumps(message)))
             except pymssql.Error as ex:
                 LOG.warning('SQL error: ' + str(ex))
             except pymssql.Warning as ex:
