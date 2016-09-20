@@ -28,12 +28,17 @@ class AsyncHelper:
         """Use asyncio.run_in_executor() easily."""
         return await self.loop.run_in_executor(self.executor, func, *args)
 
+    async def wait(self, futures, *args, timeout=None,
+                   return_when=concurrent.futures.ALL_COMPLETED):
+        """Wrap asyncio.wait()."""
+        return await asyncio.wait(futures, *args, loop=self.loop,
+                                  timeout=timeout, return_when=return_when)
+
     async def wait_for_first(self, futures, *args):
-        """Wait until the first future finishes."""
-        return await asyncio.wait(
+        """Wait until the first future completes."""
+        return await self.wait(
             futures,
             *args,
-            loop=self.loop,
             timeout=None,
             return_when=concurrent.futures.FIRST_COMPLETED)
 
