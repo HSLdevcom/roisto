@@ -176,7 +176,8 @@ class PredictionPoller:
                 now, PredictionPoller._AT_LEAST_DAYS_BACK_SHIFT)
             future_utc = _timestamp_day_shift(
                 now, PredictionPoller._AT_MOST_DAYS_FORWARD_SHIFT)
-            query = JOURNEY_QUERY.format(past_utc=past_utc, future_utc=future_utc)
+            query = JOURNEY_QUERY.format(
+                past_utc=past_utc, future_utc=future_utc)
             LOG.debug('Querying journeys from DOI:' + query)
             try:
                 result = await self._async_helper.run_in_executor(
@@ -225,7 +226,8 @@ class PredictionPoller:
             try:
                 result = await self._async_helper.run_in_executor(
                     _connect_and_query, self._roi_connect, query)
-                LOG.debug('Got {length} UTC offsets.'.format(length=len(result)))
+                LOG.debug('Got {length} UTC offsets.'.format(length=len(
+                    result)))
                 self._utc_offsets = {row[1]: row[2] for row in result}
             except pymssql.Error as ex:
                 LOG.warning('SQL error: ' + str(ex))
@@ -245,7 +247,7 @@ class PredictionPoller:
                 if journey_info is None:
                     LOG.warning('This DatedVehicleJourneyUniqueGid was not '
                                 'found from collected journey information: ' +
-                                dvj +  '. Prediction row was: ' + str(row))
+                                dvj + '. Prediction row was: ' + str(row))
                     continue
                 utc_offset = self._utc_offsets.get(dvj, None)
                 if utc_offset is None:
@@ -323,18 +325,25 @@ class PredictionPoller:
                 result = await self._async_helper.run_in_executor(
                     _connect_and_query, self._roi_connect, query)
                 pre_len = len(result)
-                result = [row for row in result if not (row[6] == modified_utc_dt and row[0] in handled_arrival_ids)]
-                LOG.debug('Got {pre_len} predictions of which {post_len} were new.'.format(pre_len=pre_len, post_len=len(result)))
+                result = [row for row in result
+                          if not (row[6] == modified_utc_dt and
+                                  row[0] in handled_arrival_ids)]
+                LOG.debug('Got {pre_len} predictions of which {post_len} were '
+                          'new.'.format(pre_len=pre_len,
+                                        post_len=len(result)))
                 if result:
-                    message_timestamp = _combine_into_timestamp(datetime.datetime.utcnow(), 0)
-                    predictions_by_stop = self._gather_predictions_per_stop(result)
+                    message_timestamp = _combine_into_timestamp(
+                        datetime.datetime.utcnow(), 0)
+                    predictions_by_stop = self._gather_predictions_per_stop(
+                        result)
                     for stop_id, predictions in predictions_by_stop.items():
                         topic_suffix = stop_id
                         message = {
                             'messageTimestamp': message_timestamp,
                             'predictions': predictions,
                         }
-                        await self._queue.put((topic_suffix, json.dumps(message)))
+                        await self._queue.put(
+                            (topic_suffix, json.dumps(message)))
                     # We will get the latest predictions again next time but it is
                     # more important not to miss any predictions than to not repeat
                     # predictions.
@@ -344,9 +353,12 @@ class PredictionPoller:
                     # to rounding.
                     modified_utc_dt = max(row[6] for row in result)
                     LOG.debug('modified_utc_dt is ' + str(modified_utc_dt))
-                    LOG.debug('minimum modified_utc_dt is ' + str(min(row[6] for row in result)))
-                    handled_arrival_ids = {row[0] for row in result if row[6] == modified_utc_dt}
-                    LOG.debug('handled_arrival_ids is ' + str(handled_arrival_ids))
+                    LOG.debug('minimum modified_utc_dt is ' + str(
+                        min(row[6] for row in result)))
+                    handled_arrival_ids = {row[0] for row in result
+                                           if row[6] == modified_utc_dt}
+                    LOG.debug('handled_arrival_ids is ' + str(
+                        handled_arrival_ids))
             except pymssql.Error as ex:
                 LOG.warning('SQL error: ' + str(ex))
             except pymssql.Warning as ex:
