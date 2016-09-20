@@ -344,13 +344,17 @@ class PredictionPoller:
                         }
                         await self._queue.put(
                             (topic_suffix, json.dumps(message)))
-                    # We will get the latest predictions again next time but it is
-                    # more important not to miss any predictions than to not repeat
-                    # predictions.
+                    # We will get the latest predictions again next time but we
+                    # will filter them out on the next run.
                     #
                     # Note that at least on 2016-09-13 the Microsoft SQL Server
-                    # datetime data type has less than a millisecond precision due
-                    # to rounding.
+                    # data type datetime has less than a millisecond precision:
+                    # https://msdn.microsoft.com/en-us/library/ms187819.aspx .
+                    #
+                    # Hopefully the comparison of values with that data type is
+                    # consistent, e.g.
+                    # 01/01/98 23:59:59.995 >= 01/01/98 23:59:59.998
+                    # is expected to be true for datetime in SQL Server.
                     modified_utc_dt = max(row[6] for row in result)
                     LOG.debug('modified_utc_dt is ' + str(modified_utc_dt))
                     LOG.debug('minimum modified_utc_dt is ' + str(
