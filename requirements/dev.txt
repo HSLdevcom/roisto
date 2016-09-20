@@ -4,6 +4,7 @@
 #
 #    pip-compile --output-file requirements/dev.txt requirements/dev.in
 #
+-e git+https://github.com/pymssql/pymssql.git@3bc299936fe2d35196dd4c9ebc8a22777f0c97e6#egg=pymssql
 astroid==1.4.8            # via pylint
 behave==1.2.5
 click==6.6                # via pip-tools
@@ -22,7 +23,6 @@ py==1.4.31                # via pytest, tox
 pycodestyle==2.0.0        # via flake8
 pyflakes==1.2.3           # via flake8
 pylint==1.6.4
-pymssql==2.1.3
 pytest==3.0.2
 PyYAML==3.12
 six==1.10.0               # via astroid, behave, parse-type, pip-tools, pylint
