@@ -10,6 +10,7 @@ pubtrans:
 mqtt:
     host: 'MY_MQTT_BROKER.com'
     port: 1883
+    transport: 'tcp'
     topic_prefix: 'publish/everything/here/'
     qos: 2
     client_id: 'MY_MQTT_CLIENT_ID'

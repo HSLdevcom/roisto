@@ -24,7 +24,8 @@ class MQTTPublisher:
         self._client = self._create_client(config)
 
     def _create_client(self, config):
-        client = mqtt.Client(client_id=config['client_id'])
+        client = mqtt.Client(client_id=config['client_id'],
+                             transport=config['transport'])
         client.on_connect = self._cb_on_connect
         client.on_disconnect = self._cb_on_disconnect
         return client
