@@ -3,9 +3,6 @@ pubtrans:
     port: 1433
     username: 'MY_PUBTRANS_USERNAME'
     password: 'MY_PUBTRANS_PASSWORD'
-    stop_query_interval: 'PT6H'
-    journey_query_interval: 'PT6H'
-    utc_offset_query_interval: 'PT6H'
     prediction_query_interval: 'PT10S'
     doi_database: &doi 'PUBTRANS_DOI_DATABASE_NAME'
     roi_database: &roi 'PUBTRANS_ROI_DATABASE_NAME'
