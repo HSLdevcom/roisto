@@ -28,7 +28,7 @@ class MQTTPublisher:
                              transport=config['transport'])
         client.on_connect = self._cb_on_connect
         client.on_disconnect = self._cb_on_disconnect
-        tls_path = config.get('tls_ca_local_path', None)
+        tls_path = config.get('ca_certs_path', None)
         if tls_path is not None:
             client.tls_set(tls_path)
         return client
