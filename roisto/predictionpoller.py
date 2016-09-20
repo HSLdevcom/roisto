@@ -327,6 +327,14 @@ class PredictionPoller:
                 LOG.debug('Got {pre_len} predictions of which {post_len} were new.'.format(pre_len=pre_len, post_len=len(result)))
                 if result:
                     message_timestamp = _combine_into_timestamp(datetime.datetime.utcnow(), 0)
+                    predictions_by_stop = self._gather_predictions_per_stop(result)
+                    for stop_id, predictions in predictions_by_stop.items():
+                        topic_suffix = stop_id
+                        message = {
+                            'messageTimestamp': message_timestamp,
+                            'predictions': predictions,
+                        }
+                        await self._queue.put((topic_suffix, json.dumps(message)))
                     # We will get the latest predictions again next time but it is
                     # more important not to miss any predictions than to not repeat
                     # predictions.
@@ -339,15 +347,6 @@ class PredictionPoller:
                     LOG.debug('minimum modified_utc_dt is ' + str(min(row[6] for row in result)))
                     handled_arrival_ids = {row[0] for row in result if row[6] == modified_utc_dt}
                     LOG.debug('handled_arrival_ids is ' + str(handled_arrival_ids))
-
-                    predictions_by_stop = self._gather_predictions_per_stop(result)
-                    for stop_id, predictions in predictions_by_stop.items():
-                        topic_suffix = stop_id
-                        message = {
-                            'messageTimestamp': message_timestamp,
-                            'predictions': predictions,
-                        }
-                        await self._queue.put((topic_suffix, json.dumps(message)))
             except pymssql.Error as ex:
                 LOG.warning('SQL error: ' + str(ex))
             except pymssql.Warning as ex:
