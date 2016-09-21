@@ -41,6 +41,7 @@ class MQTTPublisher:
         else:
             LOG.warning('MQTT connection attempt failed: ' +
                         mqtt.connack_string(rc))
+            self._is_mqtt_connected.clear()
 
     def _cb_on_disconnect(self, mqtt_client, userdata, rc):
         if rc == 0:
