@@ -28,6 +28,7 @@ class MQTTPublisher:
                              transport=config['transport'])
         client.on_connect = self._cb_on_connect
         client.on_disconnect = self._cb_on_disconnect
+        client.on_log = self._cb_on_log
         tls_path = config.get('tls_ca_local_path', None)
         if tls_path is not None:
             client.tls_set(tls_path)
@@ -47,6 +48,9 @@ class MQTTPublisher:
         else:
             LOG.warning('Lost MQTT connection: ' + mqtt.error_string(rc))
         self._is_mqtt_connected.clear()
+
+    def _cb_on_log(self, mqtt_client, userdata, level, buf):
+        LOG.info("paho-mqtt: %d %s" % (level, buf))
 
     async def _keep_publishing(self):
         while True:
