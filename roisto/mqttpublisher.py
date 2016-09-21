@@ -11,6 +11,14 @@ LOG = logging.getLogger(__name__)
 class MQTTPublisher:
     """Publish messages from a given queue using MQTT."""
 
+    _LOG_MATCH = {
+        mqtt.MQTT_LOG_DEBUG: logging.DEBUG,
+        mqtt.MQTT_LOG_INFO: logging.INFO,
+        mqtt.MQTT_LOG_NOTICE: logging.INFO,
+        mqtt.MQTT_LOG_WARNING: logging.WARNING,
+        mqtt.MQTT_LOG_ERR: logging.ERROR,
+    }
+
     def __init__(self, config, async_helper, queue, is_mqtt_connected):
         self._async_helper = async_helper
         self._queue = queue
@@ -51,7 +59,8 @@ class MQTTPublisher:
         self._is_mqtt_connected.clear()
 
     def _cb_on_log(self, mqtt_client, userdata, level, buf):
-        LOG.info("paho-mqtt: %d %s" % (level, buf))
+        log_level = MQTTPublisher._LOG_MATCH[level]
+        LOG.log(log_level, 'paho-mqtt: %s', buf)
 
     async def _keep_publishing(self):
         while True:
