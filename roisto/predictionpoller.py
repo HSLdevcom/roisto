@@ -91,8 +91,6 @@ class PredictionFilter:
         fresh = [row for row in rows
                  if not (row[6] == self._max_modification and row[0] in
                          self._arrival_ids)]
-        LOG.debug('Got %s predictions of which %s were new.', len(rows),
-                  len(fresh))
         return fresh
 
     def get_latest_modification_datetime(self):
@@ -363,7 +361,11 @@ class PredictionPoller:
             await self._async_helper.wait_for_event(self._is_mqtt_connected)
             LOG.debug('Querying predictions from ROI:%s', query)
             result = await self._connect_and_query(self._roi_connect, query)
+            old_len = len(result)
             result = prediction_filter.filter(result)
+            new_len = len(result)
+            LOG.debug('Got %s predictions of which %s were new.', old_len,
+                      new_len)
             if result:
                 message_timestamp = _create_timestamp()
                 predictions_by_stop = self._gather_predictions_per_stop(result)
