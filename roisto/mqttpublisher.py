@@ -32,8 +32,8 @@ class MQTTPublisher:
         self._client = self._create_client(config)
 
     def _create_client(self, config):
-        client = mqtt.Client(client_id=config['client_id'],
-                             transport=config['transport'])
+        client = mqtt.Client(
+            client_id=config['client_id'], transport=config['transport'])
         client.on_connect = self._cb_on_connect
         client.on_disconnect = self._cb_on_disconnect
         client.on_log = self._cb_on_log
@@ -47,7 +47,7 @@ class MQTTPublisher:
             LOG.info('MQTT connection attempt succeeded.')
             self._is_mqtt_connected.set()
         else:
-            LOG.warning('MQTT connection attempt failed: ' +
+            LOG.warning('MQTT connection attempt failed: %s',
                         mqtt.connack_string(rc))
             self._is_mqtt_connected.clear()
 
@@ -55,7 +55,7 @@ class MQTTPublisher:
         if rc == 0:
             LOG.info('Disconnection succeeded.')
         else:
-            LOG.warning('Lost MQTT connection: ' + mqtt.error_string(rc))
+            LOG.warning('Lost MQTT connection: %s', mqtt.error_string(rc))
         self._is_mqtt_connected.clear()
 
     def _cb_on_log(self, mqtt_client, userdata, level, buf):
@@ -66,7 +66,10 @@ class MQTTPublisher:
         while True:
             topic, payload = await self._queue.get()
             self._client.publish(
-                self._topic_prefix + topic, payload=payload, qos=self._qos, retain=False)
+                self._topic_prefix + topic,
+                payload=payload,
+                qos=self._qos,
+                retain=False)
 
     async def run(self):
         """Run the MQTTPublisher."""
