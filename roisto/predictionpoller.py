@@ -49,16 +49,6 @@ def _timestamp_day_shift(now, days):
     return then.strftime('%Y-%m-%d')
 
 
-def _filter_old_predictions_out(predictions, max_datetime_last_iteration,
-                                arrival_ids_with_max_datetime):
-    fresh = [row for row in predictions
-             if not (row[6] == max_datetime_last_iteration and row[0] in
-                     arrival_ids_with_max_datetime)]
-    LOG.debug('Got {old_len} predictions of which {new_len} were new.'.format(
-        old_len=len(predictions), new_len=len(fresh)))
-    return fresh
-
-
 def _create_timestamp():
     return _combine_into_timestamp(datetime.datetime.utcnow(), 0)
 
@@ -372,36 +362,29 @@ class PredictionPoller:
                 modified_utc=modified_utc)
             LOG.debug('Starting to wait for MQTT connection.')
             await self._async_helper.wait_for_event(self._is_mqtt_connected)
-            LOG.debug('Querying predictions from ROI:' + query)
-            try:
-                result = await self._connect_and_query(self._roi_connect,
-                                                       query)
-                result = prediction_filter.filter(result)
-                if result:
-                    message_timestamp = _create_timestamp()
-                    predictions_by_stop = self._gather_predictions_per_stop(
-                        result)
-                    if predictions_by_stop is None:
-                        LOG.info('Jore mapping was insufficient so start to '
-                                 'update it.')
-                        await self._update_jore_mapping()
-                        # This is rare so let's just query the same predictions
-                        # again.
-                    else:
-                        for stop_id, predictions in predictions_by_stop.items():
-                            topic_suffix = stop_id
-                            message = {
-                                'messageTimestamp': message_timestamp,
-                                'predictions': predictions,
-                            }
-                            await self._queue.put(
-                                (topic_suffix, json.dumps(message)))
-                        prediction_filter.update(result)
-                        modified_utc_dt = prediction_filter.get_latest_modification_datetime()
-            except pymssql.Error as ex:
-                LOG.warning('SQL error: ' + str(ex))
-            except pymssql.Warning as ex:
-                LOG.warning('SQL warning: ' + str(ex))
+            LOG.debug('Querying predictions from ROI:%s', query)
+            result = await self._connect_and_query(self._roi_connect, query)
+            result = prediction_filter.filter(result)
+            if result:
+                message_timestamp = _create_timestamp()
+                predictions_by_stop = self._gather_predictions_per_stop(result)
+                if predictions_by_stop is None:
+                    LOG.info('Jore mapping was insufficient so start to '
+                             'update it.')
+                    await self._update_jore_mapping()
+                    # This is rare so let's just query the same predictions
+                    # again.
+                else:
+                    for stop_id, predictions in predictions_by_stop.items():
+                        topic_suffix = stop_id
+                        message = {
+                            'messageTimestamp': message_timestamp,
+                            'predictions': predictions,
+                        }
+                        await self._queue.put(
+                            (topic_suffix, json.dumps(message)))
+                    prediction_filter.update(result)
+                    modified_utc_dt = prediction_filter.get_latest_modification_datetime()
             await self._async_helper.sleep(
                 self._prediction_poll_sleep_in_seconds)
 
