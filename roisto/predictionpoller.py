@@ -91,9 +91,8 @@ class PredictionFilter:
         fresh = [row for row in rows
                  if not (row[6] == self._max_modification and row[0] in
                          self._arrival_ids)]
-        LOG.debug('Got {old_len} predictions of which {new_len} were '
-                  'new.'.format(
-                      old_len=len(rows), new_len=len(fresh)))
+        LOG.debug('Got %s predictions of which %s were new.', len(rows),
+                  len(fresh))
         return fresh
 
     def get_latest_modification_datetime(self):
@@ -252,17 +251,17 @@ class PredictionPoller:
             result = await self._async_helper.run_in_executor(
                 _connect_and_query_synchronously, connect, query)
         except pymssql.Error as ex:
-            LOG.warning('SQL error: ' + str(ex))
+            LOG.warning('SQL error: %s', str(ex))
         except pymssql.Warning as ex:
-            LOG.warning('SQL warning: ' + str(ex))
+            LOG.warning('SQL warning: %s', str(ex))
         return result
 
     async def _update_stops(self):
         query = PredictionPoller.STOP_QUERY
-        LOG.debug('Querying stops from DOI:' + query)
+        LOG.debug('Querying stops from DOI:%s', query)
         result = await self._connect_and_query(self._doi_connect, query)
         if result:
-            LOG.debug('Got {length} stops.'.format(length=len(result)))
+            LOG.debug('Got %d stops.', len(result))
             self._stops = dict(result)
 
     async def _update_journeys(self):
@@ -273,10 +272,10 @@ class PredictionPoller:
             now, PredictionPoller._AT_MOST_DAYS_FORWARD_SHIFT)
         query = PredictionPoller.JOURNEY_QUERY.format(
             past_utc=past_utc, future_utc=future_utc)
-        LOG.debug('Querying journeys from DOI:' + query)
+        LOG.debug('Querying journeys from DOI:%s', query)
         result = await self._connect_and_query(self._doi_connect, query)
         if result:
-            LOG.debug('Got {length} journeys.'.format(length=len(result)))
+            LOG.debug('Got %d journeys.', len(result))
             rearranged = {}
             for row in result:
                 rearranged[row[1]] = {
@@ -294,10 +293,10 @@ class PredictionPoller:
             now, PredictionPoller._AT_MOST_DAYS_FORWARD_SHIFT)
         query = PredictionPoller.UTC_OFFSET_QUERY.format(
             past_utc=past_utc, future_utc=future_utc)
-        LOG.debug('Querying UTC offsets from ROI:' + query)
+        LOG.debug('Querying UTC offsets from ROI:%s', query)
         result = await self._connect_and_query(self._roi_connect, query)
         if result:
-            LOG.debug('Got {length} UTC offsets.'.format(length=len(result)))
+            LOG.debug('Got %d UTC offsets.', len(result))
             self._utc_offsets = {row[1]: row[2] for row in result}
 
     async def _update_jore_mapping(self):
@@ -315,21 +314,21 @@ class PredictionPoller:
             journey_info = self._journeys.get(dvj, None)
             if journey_info is None:
                 LOG.warning('This DatedVehicleJourneyUniqueGid was not found '
-                            'from collected journey information: ' + dvj + '. '
-                            'Prediction row was: ' + str(row))
+                            'from collected journey information: %s. '
+                            'Prediction row was: %s', dvj, str(row))
                 return None
             utc_offset = self._utc_offsets.get(dvj, None)
             if utc_offset is None:
                 LOG.warning('This DatedVehicleJourneyUniqueGid was not found '
-                            'from collected UTC offset information: ' + dvj +
-                            '. Prediction row was: ' + str(row))
+                            'from collected UTC offset information: %s.'
+                            'Prediction row was: %s', dvj, str(row))
                 return None
             jpp = row[3]
             stop = self._stops.get(jpp, None)
             if stop is None:
                 LOG.warning('This JourneyPatternPointGid was not found from '
-                            'collected stop information: ' + jpp + '. '
-                            'Prediction row was: ' + str(row))
+                            'collected stop information: %s. Prediction row '
+                            'was: %s', jpp, str(row))
                 return None
             start_naive = journey_info['LocalizedStartTime']
             scheduled_naive = row[4]
