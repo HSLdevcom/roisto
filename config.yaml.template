@@ -3,7 +3,7 @@ pubtrans:
     port: 1433
     username: 'MY_PUBTRANS_USERNAME'
     password: 'MY_PUBTRANS_PASSWORD'
-    prediction_poll_sleep: 'PT10S'
+    prediction_poll_sleep: 'PT60S'
     doi_database: &doi 'PUBTRANS_DOI_DATABASE_NAME'
     roi_database: &roi 'PUBTRANS_ROI_DATABASE_NAME'
     tds_version: '7.2'
