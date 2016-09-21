@@ -11,7 +11,7 @@ mqtt:
     host: 'MY_MQTT_BROKER.com'
     port: 1883
     transport: 'tcp'
-    tls_ca_local_path: '/usr/share/ca-certificates/mozilla'
+    ca_certs_path: '/etc/ssl/certs/ca-certificates.crt'
     topic_prefix: 'publish/everything/here/'
     qos: 2
     client_id: 'MY_MQTT_CLIENT_ID'
