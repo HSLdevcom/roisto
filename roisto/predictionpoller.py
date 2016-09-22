@@ -127,6 +127,7 @@ class PredictionPoller:
             DatedVehicleJourney AS DVJ
         WHERE
             A.IsOnDatedVehicleJourneyId = DVJ.Id
+            AND DVJ.IsOnDirectionOfLineGid IS NOT NULL
             AND A.LastModifiedUTCDateTime >= '{modified_utc}'
             AND A.EstimatedDateTime IS NOT NULL
             AND A.LastModifiedUTCDateTime IS NOT NULL
