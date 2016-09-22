@@ -31,3 +31,6 @@ logging:
             - 'console'
         level: 'DEBUG'
     disable_existing_loggers: False
+    loggers:
+        paho.mqtt.client:
+            level: 'INFO'

@@ -6,6 +6,7 @@ import logging
 import paho.mqtt.client as mqtt
 
 LOG = logging.getLogger(__name__)
+PAHO_LOG = logging.getLogger("paho.mqtt.client")
 
 
 class MQTTPublisher:
@@ -60,7 +61,7 @@ class MQTTPublisher:
 
     def _cb_on_log(self, mqtt_client, userdata, level, buf):
         log_level = MQTTPublisher._LOG_MATCH[level]
-        LOG.log(log_level, 'paho-mqtt: %s', buf)
+        PAHO_LOG.log(log_level, buf)
 
     async def _keep_publishing(self):
         while True:
