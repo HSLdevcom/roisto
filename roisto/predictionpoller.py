@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Poll the PubTrans SQL database."""
 
+import collections
 import datetime
 import functools
 import json
@@ -9,6 +10,7 @@ import logging
 import pymssql
 
 from roisto import util
+from roisto import mapper
 
 LOG = logging.getLogger(__name__)
 
@@ -51,6 +53,47 @@ def _timestamp_day_shift(now, days):
 
 def _create_timestamp():
     return _combine_into_timestamp(datetime.datetime.utcnow(), 0)
+
+
+def _parse_stops(rows):
+    return dict(rows)
+
+
+def _parse_journeys(rows):
+    return {
+        row[1]: {
+            'JoreLineId': row[2],
+            'JoreDirection': row[3],
+            'LocalizedStartTime': row[4],
+        }
+        for row in rows
+    }
+
+
+def _parse_utc_offsets(rows):
+    return {row[1]: row[2] for row in rows}
+
+
+def _arrange_prediction(row, match):
+    stop = match['stop']
+    journey_info = match['journey_info']
+    utc_offset = match['utc_offset']
+
+    start_naive = journey_info['LocalizedStartTime']
+    scheduled_naive = row[4]
+    predicted_naive = row[5]
+    start_time = _combine_into_timestamp(start_naive, utc_offset)
+    scheduled_time = _combine_into_timestamp(scheduled_naive, utc_offset)
+    predicted_time = _combine_into_timestamp(predicted_naive, utc_offset)
+    prediction = {
+        'joreStopId': stop,
+        'joreLineId': journey_info['JoreLineId'],
+        'joreLineDirection': journey_info['JoreDirection'],
+        'journeyStartTime': start_time,
+        'scheduledArrivalTime': scheduled_time,
+        'predictedArrivalTime': predicted_time,
+    }
+    return (stop, prediction)
 
 
 class PredictionFilter:
@@ -232,12 +275,12 @@ class PredictionPoller:
         self._prediction_poll_sleep_in_seconds = util.convert_duration_to_seconds(
             config['prediction_poll_sleep'])
 
-        # Dictionaries for matching PubTrans IDs to Jore IDs.
-        self._stops = {}
-        self._journeys = {}
-
-        # Accounting for the timezone.
-        self._utc_offsets = {}
+        # Get Jore information from PubTrans IDs using Mappers.
+        self._stop_mapper = mapper.Mapper(self._update_stops, _parse_stops)
+        self._journey_mapper = mapper.Mapper(self._update_journeys,
+                                             _parse_journeys)
+        self._utc_offset_mapper = mapper.Mapper(self._update_utc_offsets,
+                                                _parse_utc_offsets)
 
     async def _connect_and_query(self, connect, query):
         """Connect and query once.
@@ -256,14 +299,15 @@ class PredictionPoller:
         return result
 
     async def _update_stops(self):
+        LOG.info('Updating stop mapping.')
         query = PredictionPoller.STOP_QUERY
         LOG.debug('Querying stops from DOI:%s', query)
         result = await self._connect_and_query(self._doi_connect, query)
-        if result:
-            LOG.debug('Got %d stops.', len(result))
-            self._stops = dict(result)
+        LOG.debug('Got %d stops.', len(result))
+        return result
 
     async def _update_journeys(self):
+        LOG.info('Updating journey mapping.')
         now = datetime.datetime.utcnow()
         past_utc = _timestamp_day_shift(
             now, PredictionPoller._AT_LEAST_DAYS_BACK_SHIFT)
@@ -273,18 +317,11 @@ class PredictionPoller:
             past_utc=past_utc, future_utc=future_utc)
         LOG.debug('Querying journeys from DOI:%s', query)
         result = await self._connect_and_query(self._doi_connect, query)
-        if result:
-            LOG.debug('Got %d journeys.', len(result))
-            rearranged = {}
-            for row in result:
-                rearranged[row[1]] = {
-                    'JoreLineId': row[2],
-                    'JoreDirection': row[3],
-                    'LocalizedStartTime': row[4],
-                }
-            self._journeys = rearranged
+        LOG.debug('Got %d journeys.', len(result))
+        return result
 
     async def _update_utc_offsets(self):
+        LOG.info('Updating UTC offset mapping.')
         now = datetime.datetime.utcnow()
         past_utc = _timestamp_day_shift(
             now, PredictionPoller._AT_LEAST_DAYS_BACK_SHIFT)
@@ -294,61 +331,69 @@ class PredictionPoller:
             past_utc=past_utc, future_utc=future_utc)
         LOG.debug('Querying UTC offsets from ROI:%s', query)
         result = await self._connect_and_query(self._roi_connect, query)
-        if result:
-            LOG.debug('Got %d UTC offsets.', len(result))
-            self._utc_offsets = {row[1]: row[2] for row in result}
+        LOG.debug('Got %d UTC offsets.', len(result))
+        return result
 
-    async def _update_jore_mapping(self):
+    async def _update_mappers(self):
         tasks = [
-            self._update_stops(),
-            self._update_journeys(),
-            self._update_utc_offsets(),
+            self._stop_mapper.update(),
+            self._journey_mapper.update(),
+            self._utc_offset_mapper.update(),
         ]
-        return await self._async_helper.wait(tasks)
+        done, pending = await self._async_helper.wait(tasks)
+        if len(pending) > 0 or len(done) < len(tasks):
+            LOG.error('At least one of the mapping updates failed. In '
+                      'pending: %s', str(pending))
+        return any((future.result() for future in done))
 
-    def _gather_predictions_per_stop(self, result):
-        predictions_by_stop = {}
-        for row in result:
-            dvj = row[2]
-            journey_info = self._journeys.get(dvj, None)
-            if journey_info is None:
-                LOG.warning('This DatedVehicleJourneyUniqueGid was not found '
-                            'from collected journey information: %s. '
-                            'Prediction row was: %s', dvj, str(row))
-                return None
-            utc_offset = self._utc_offsets.get(dvj, None)
-            if utc_offset is None:
-                LOG.warning('This DatedVehicleJourneyUniqueGid was not found '
-                            'from collected UTC offset information: %s.'
-                            'Prediction row was: %s', dvj, str(row))
-                return None
-            jpp = row[3]
-            stop = self._stops.get(jpp, None)
-            if stop is None:
-                LOG.warning('This JourneyPatternPointGid was not found from '
-                            'collected stop information: %s. Prediction row '
-                            'was: %s', jpp, str(row))
-                return None
-            start_naive = journey_info['LocalizedStartTime']
-            scheduled_naive = row[4]
-            predicted_naive = row[5]
-            start_time = _combine_into_timestamp(start_naive, utc_offset)
-            scheduled_time = _combine_into_timestamp(scheduled_naive,
-                                                     utc_offset)
-            predicted_time = _combine_into_timestamp(predicted_naive,
-                                                     utc_offset)
-            prediction = {
-                'joreStopId': stop,
-                'joreLineId': journey_info['JoreLineId'],
-                'joreLineDirection': journey_info['JoreDirection'],
-                'journeyStartTime': start_time,
-                'scheduledArrivalTime': scheduled_time,
-                'predictedArrivalTime': predicted_time,
-            }
-            predictions_list = predictions_by_stop.get(stop, [])
-            predictions_list.append(prediction)
-            predictions_by_stop[stop] = predictions_list
-        return predictions_by_stop
+    def _get_matches(self, row):
+        jpp = row[3]
+        stop = self._stop_mapper.get(jpp)
+        if stop is None:
+            LOG.debug('This JourneyPatternPointGid was not found from '
+                      'collected stop information: %s. Prediction row '
+                      'was: %s', jpp, str(row))
+        dvj = row[2]
+        journey_info = self._journey_mapper.get(dvj)
+        if journey_info is None:
+            LOG.debug('This DatedVehicleJourneyUniqueGid was not found '
+                      'from collected journey information: %s. Prediction '
+                      'row was: %s', dvj, str(row))
+        utc_offset = self._utc_offset_mapper.get(dvj)
+        if utc_offset is None:
+            LOG.debug('This DatedVehicleJourneyUniqueGid was not found '
+                      'from collected UTC offset information: %s.'
+                      'Prediction row was: %s', dvj, str(row))
+        if stop is None or journey_info is None or utc_offset is None:
+            return None
+        return {
+            'stop': stop,
+            'journey_info': journey_info,
+            'utc_offset': utc_offset,
+        }
+
+    async def _get_all_matches(self, rows):
+        is_every_row_matched = False
+        matches = []
+        while not is_every_row_matched:
+            matches = [self._get_matches(row) for row in rows]
+            if await self._update_mappers():
+                LOG.debug('At least one Jore mapper was updated so try '
+                          'matching predictions again.')
+            else:
+                is_every_row_matched = True
+        return matches
+
+    def _arrange_predictions_by_stop(self, rows, matches):
+        predictions_by_stop = collections.defaultdict(list)
+        for (row, match) in zip(rows, matches):
+            if match is None:
+                LOG.debug('Match is not available for prediction row: %s',
+                          str(row))
+            else:
+                stop, prediction = _arrange_prediction(row, match)
+                predictions_by_stop[stop].append(prediction)
+        return dict(predictions_by_stop)
 
     async def _keep_polling_predictions(self):
         prediction_filter = PredictionFilter()
@@ -369,24 +414,18 @@ class PredictionPoller:
                       new_len)
             if result:
                 message_timestamp = _create_timestamp()
-                predictions_by_stop = self._gather_predictions_per_stop(result)
-                if predictions_by_stop is None:
-                    LOG.info('Jore mapping was insufficient so start to '
-                             'update it.')
-                    await self._update_jore_mapping()
-                    # This is rare so let's just query the same predictions
-                    # again.
-                else:
-                    for stop_id, predictions in predictions_by_stop.items():
-                        topic_suffix = stop_id
-                        message = {
-                            'messageTimestamp': message_timestamp,
-                            'predictions': predictions,
-                        }
-                        await self._queue.put(
-                            (topic_suffix, json.dumps(message)))
-                    prediction_filter.update(result)
-                    modified_utc_dt = prediction_filter.get_latest_modification_datetime()
+                matches = await self._get_all_matches(result)
+                predictions_by_stop = self._arrange_predictions_by_stop(
+                    result, matches)
+                for stop, predictions in predictions_by_stop.items():
+                    topic_suffix = stop
+                    message = {
+                        'messageTimestamp': message_timestamp,
+                        'predictions': predictions,
+                    }
+                    await self._queue.put((topic_suffix, json.dumps(message)))
+                prediction_filter.update(result)
+                modified_utc_dt = prediction_filter.get_latest_modification_datetime()
             await self._async_helper.sleep(
                 self._prediction_poll_sleep_in_seconds)
 
