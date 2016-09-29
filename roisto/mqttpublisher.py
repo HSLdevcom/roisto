@@ -56,7 +56,7 @@ class MQTTPublisher:
         if rc == 0:
             LOG.info('Disconnection succeeded.')
         else:
-            LOG.warning('Lost MQTT connection: %s', mqtt.error_string(rc))
+            LOG.warning('Lost MQTT connection.')
         self._is_mqtt_connected.clear()
 
     def _cb_on_log(self, mqtt_client, userdata, level, buf):
