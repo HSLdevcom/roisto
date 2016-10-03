@@ -19,7 +19,8 @@ mqtt:
     password: 'MY_MQTT_PASSWORD'
     topic_prefix: 'publish/everything/here/'
     qos: 2
-    client_id: 'MY_MQTT_CLIENT_ID'
+    # If commented out, generate client ID randomly.
+    #client_id: 'MY_MQTT_CLIENT_ID'
 logging:
     version: 1
     formatters:
