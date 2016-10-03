@@ -41,6 +41,10 @@ class MQTTPublisher:
         tls_path = config.get('ca_certs_path', None)
         if tls_path is not None:
             client.tls_set(tls_path)
+        username = config.get('username', None)
+        password = config.get('password', None)
+        if username is not None and password is not None:
+            client.username_pw_set(username, password=password)
         return client
 
     def _cb_on_connect(self, mqtt_client, userdata, flags, rc):

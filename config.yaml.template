@@ -13,6 +13,10 @@ mqtt:
     transport: 'tcp'
     # If commented out, do not try to use TLS.
     ca_certs_path: '/etc/ssl/certs/ca-certificates.crt'
+    # If commented out, do not try to authenticate with username and password.
+    username: 'MY_MQTT_USERNAME'
+    # If commented out, do not try to authenticate with username and password.
+    password: 'MY_MQTT_PASSWORD'
     topic_prefix: 'publish/everything/here/'
     qos: 2
     client_id: 'MY_MQTT_CLIENT_ID'
