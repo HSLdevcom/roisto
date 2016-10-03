@@ -11,6 +11,7 @@ mqtt:
     host: 'MY_MQTT_BROKER.com'
     port: 1883
     transport: 'tcp'
+    # If commented out, do not try to use TLS.
     ca_certs_path: '/etc/ssl/certs/ca-certificates.crt'
     topic_prefix: 'publish/everything/here/'
     qos: 2
