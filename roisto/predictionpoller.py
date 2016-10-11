@@ -96,6 +96,18 @@ def _arrange_prediction(row, match):
     return (stop, prediction)
 
 
+def _arrange_predictions_by_stop(rows, matches):
+    predictions_by_stop = collections.defaultdict(list)
+    for (row, match) in zip(rows, matches):
+        if match is None:
+            LOG.debug('Match is not available for prediction row: %s',
+                      str(row))
+        else:
+            stop, prediction = _arrange_prediction(row, match)
+            predictions_by_stop[stop].append(prediction)
+    return dict(predictions_by_stop)
+
+
 class PredictionFilter:
     """Filter out already handled predictions."""
 
@@ -384,17 +396,6 @@ class PredictionPoller:
                 is_every_row_matched = True
         return matches
 
-    def _arrange_predictions_by_stop(self, rows, matches):
-        predictions_by_stop = collections.defaultdict(list)
-        for (row, match) in zip(rows, matches):
-            if match is None:
-                LOG.debug('Match is not available for prediction row: %s',
-                          str(row))
-            else:
-                stop, prediction = _arrange_prediction(row, match)
-                predictions_by_stop[stop].append(prediction)
-        return dict(predictions_by_stop)
-
     async def _keep_polling_predictions(self):
         prediction_filter = PredictionFilter()
         modified_utc_dt = (datetime.datetime.utcnow() - datetime.timedelta(
@@ -415,8 +416,8 @@ class PredictionPoller:
             if result:
                 message_timestamp = _create_timestamp()
                 matches = await self._get_all_matches(result)
-                predictions_by_stop = self._arrange_predictions_by_stop(
-                    result, matches)
+                predictions_by_stop = _arrange_predictions_by_stop(result,
+                                                                   matches)
                 for stop, predictions in predictions_by_stop.items():
                     topic_suffix = stop
                     message = {
