@@ -46,9 +46,9 @@ class AsyncHelper:
         """Wait for a future until it is done."""
         return await asyncio.wait_for(future, timeout=None, loop=self.loop)
 
-    async def wait_for_event(self, event, *args):
-        """Use threading.Event.wait() with asyncio."""
-        return await self.run_in_executor(event.wait, *args)
+    def call_soon_threadsafe(self, callback, *args):
+        """Use call_soon_threadsafe from the right loop."""
+        return self.loop.call_soon_threadsafe(callback, *args)
 
     async def sleep(self, *args, **kwargs):
         """Sleep in the right loop."""

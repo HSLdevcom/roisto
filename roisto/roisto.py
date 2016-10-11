@@ -5,7 +5,6 @@
 import asyncio
 import logging
 import logging.config
-import threading
 
 from roisto import cmdline
 from roisto import mqttpublisher
@@ -26,7 +25,8 @@ def main():
     async_helper = util.AsyncHelper(loop, executor=None)
 
     queue = asyncio.Queue()
-    is_mqtt_connected = threading.Event()
+    is_mqtt_connected = asyncio.Event(loop=loop)
+
     mqtt_publisher = mqttpublisher.MQTTPublisher(config['mqtt'], async_helper,
                                                  queue, is_mqtt_connected)
 

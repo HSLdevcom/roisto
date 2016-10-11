@@ -405,7 +405,7 @@ class PredictionPoller:
             query = PredictionPoller.PREDICTION_QUERY.format(
                 modified_utc=modified_utc)
             LOG.debug('Starting to wait for MQTT connection.')
-            await self._async_helper.wait_for_event(self._is_mqtt_connected)
+            await self._is_mqtt_connected.wait()
             LOG.debug('Querying predictions from ROI:%s', query)
             result = await self._connect_and_query(self._roi_connect, query)
             old_len = len(result)
