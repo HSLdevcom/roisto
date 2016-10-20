@@ -249,6 +249,8 @@ class PredictionPoller:
 
             AND DVJ.OperatingDayDate >= '{past_utc}'
             AND DVJ.OperatingDayDate < '{future_utc}'
+
+            AND DVJ.IsReplacedById IS NULL
     """
     UTC_OFFSET_QUERY = """
         SELECT
