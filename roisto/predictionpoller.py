@@ -165,8 +165,7 @@ class PredictionPoller:
     PREDICTION_QUERY = """
         SELECT
             CONVERT(CHAR(16), A.Id) AS ArrivalId,
-            CONVERT(CHAR(16), DVJ.Id
-            ) AS DatedVehicleJourneyId,
+            CONVERT(CHAR(16), DVJ.Id) AS DatedVehicleJourneyId,
             CONCAT(
                 CONVERT(CHAR(8), DVJ.OperatingDayDate, 112),
                 ':',
