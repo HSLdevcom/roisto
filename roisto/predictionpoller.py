@@ -254,7 +254,7 @@ class PredictionPoller:
     """
     UTC_OFFSET_QUERY = """
         SELECT
-            Id AS DatedVehicleJourneyId,
+            CONVERT(CHAR(16), Id) AS DatedVehicleJourneyId,
             CONCAT(
                 CONVERT(CHAR(8), OperatingDayDate, 112),
                 ':',
