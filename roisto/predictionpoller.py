@@ -162,6 +162,10 @@ class PredictionPoller:
 
     _AT_LEAST_DAYS_BACK_SHIFT = -1
     _AT_MOST_DAYS_FORWARD_SHIFT = 2
+    # At 2016-10-26T12:32Z it holds for every row of JourneyPatternPoint in
+    # ptDOI that:
+    # Gid % 10000000 = Number
+    # So cut off via points that way.
     PREDICTION_QUERY = """
         SELECT
             CONVERT(CHAR(16), A.Id) AS ArrivalId,
@@ -185,13 +189,22 @@ class PredictionPoller:
             AND A.LastModifiedUTCDateTime >= '{modified_utc}'
             AND A.EstimatedDateTime IS NOT NULL
             AND A.LastModifiedUTCDateTime IS NOT NULL
+            AND (
+                A.IsTargetedAtJourneyPatternPointGid % 10000000 < 1999000
+                OR A.IsTargetedAtJourneyPatternPointGid % 10000000 > 1999999
+            )
     """
+    # 1999xxx should refer to via points. Mono does not care about them, so
+    # avoid extra burden.
     STOP_QUERY = """
         SELECT
             CONVERT(CHAR(16), Gid) AS JourneyPatternPointGid,
             CONVERT(CHAR(7), Number) AS JoreStopId
         FROM
             JourneyPatternPoint
+        WHERE
+            Number < 1999000
+            OR Number > 1999999
     """
     JOURNEY_QUERY = """
         SELECT
