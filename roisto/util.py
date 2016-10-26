@@ -19,37 +19,36 @@ class AsyncHelper:
         self.loop = loop
         self.executor = executor
 
-    async def ensure_future(self, coro_or_future, *args):
+    def _replace_loop(self, func_or_coro, *args, **kwargs):
+        kwargs['loop'] = self.loop
+        return func_or_coro(*args, **kwargs)
+
+    def ensure_future(self, *args, **kwargs):
         """Create a task."""
-        return await asyncio.ensure_future(
-            coro_or_future, *args, loop=self.loop)
+        return self._replace_loop(asyncio.ensure_future, *args, **kwargs)
 
-    async def run_in_executor(self, func, *args):
-        """Use asyncio.run_in_executor() easily."""
-        return await self.loop.run_in_executor(self.executor, func, *args)
+    def run_in_executor(self, *args, **kwargs):
+        """Use loop.run_in_executor() easily."""
+        return self.loop.run_in_executor(self.executor, *args, **kwargs)
 
-    async def wait(self, futures, *args, timeout=None,
-                   return_when=concurrent.futures.ALL_COMPLETED):
+    def wait(self, *args, **kwargs):
         """Wrap asyncio.wait()."""
-        return await asyncio.wait(futures, *args, loop=self.loop,
-                                  timeout=timeout, return_when=return_when)
+        return self._replace_loop(asyncio.wait, *args, **kwargs)
 
-    async def wait_for_first(self, futures, *args):
+    def wait_for_first(self, *args, **kwargs):
         """Wait until the first future completes."""
-        return await self.wait(
-            futures,
-            *args,
-            timeout=None,
-            return_when=concurrent.futures.FIRST_COMPLETED)
+        kwargs['return_when'] = concurrent.futures.FIRST_COMPLETED
+        return self.wait(*args, **kwargs)
 
-    async def wait_forever(self, future):
+    def wait_forever(self, *args, **kwargs):
         """Wait for a future until it is done."""
-        return await asyncio.wait_for(future, timeout=None, loop=self.loop)
+        kwargs['timeout'] = None
+        return self._replace_loop(asyncio.wait_for, *args, **kwargs)
 
-    def call_soon_threadsafe(self, callback, *args):
+    def call_soon_threadsafe(self, *args, **kwargs):
         """Use call_soon_threadsafe from the right loop."""
-        return self.loop.call_soon_threadsafe(callback, *args)
+        return self.loop.call_soon_threadsafe(*args, **kwargs)
 
-    async def sleep(self, *args, **kwargs):
+    def sleep(self, *args, **kwargs):
         """Sleep in the right loop."""
-        return await asyncio.sleep(*args, **kwargs, loop=self.loop)
+        return self._replace_loop(asyncio.sleep, *args, **kwargs)
