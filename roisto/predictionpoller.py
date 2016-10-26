@@ -196,8 +196,12 @@ class PredictionPoller:
     """
     # 1999xxx should refer to via points. Mono does not care about them, so
     # avoid extra burden.
+    #
+    # ExistsFromDate and ExistsUptoDate do not matter as there is 1:1
+    # correspondence between Gid and Number, even in different versions of same
+    # stop.
     STOP_QUERY = """
-        SELECT
+        SELECT DISTINCT
             CONVERT(CHAR(16), Gid) AS JourneyPatternPointGid,
             CONVERT(CHAR(7), Number) AS JoreStopId
         FROM
