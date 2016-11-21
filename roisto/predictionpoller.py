@@ -118,15 +118,18 @@ class PredictionFilter:
         self._max_modification = datetime.datetime.utcnow()
         # A set of Arrival.Id values where the modification time matches
         # self._max_modification.
-        self._arrival_ids = set()
+        self._arrival_ids_modified_latest = set()
+        self._previously_estimated = {}
 
     def update(self, rows):
         """Find relevant values for filtering."""
         if rows:
             self._max_modification = max(row[6] for row in rows)
-            self._arrival_ids = {row[0]
-                                 for row in rows
-                                 if row[6] == self._max_modification}
+            self._arrival_ids_modified_latest = {
+                row[0]
+                for row in rows if row[6] == self._max_modification
+            }
+            self._previously_estimated = {row[0]: row[5] for row in rows}
         else:
             LOG.error('PredictionFilter.update() must be called with a '
                       'non-empty sequence.')
@@ -143,9 +146,13 @@ class PredictionFilter:
         01/01/98 13:59:59.995 == 01/01/98 13:59:59.998
         is expected to be true for datetime in SQL Server.
         """
-        fresh = [row for row in rows
+        fresh = (row for row in rows
                  if not (row[6] == self._max_modification and row[0] in
-                         self._arrival_ids)]
+                         self._arrival_ids_modified_latest))
+        fresh = [
+            row for row in fresh
+            if self._previously_estimated.get(row[0], None) != row[5]
+        ]
         return fresh
 
     def get_latest_modification_datetime(self):
