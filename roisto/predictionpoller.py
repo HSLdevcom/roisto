@@ -428,7 +428,7 @@ class PredictionPoller:
         utc_offset = self._utc_offset_mapper.get(dvj)
         if utc_offset is None:
             LOG.debug('This DatedVehicleJourneyUniqueGid was not found '
-                      'from collected UTC offset information: %s.'
+                      'from collected UTC offset information: %s. '
                       'Prediction row was: %s', dvj, str(row))
         if stop is None or journey_info is None or utc_offset is None:
             return None
