@@ -6,5 +6,6 @@
 #
 -e git+https://github.com/eclipse/paho.mqtt.python.git@2539ea2d3ab1bf10e5e255f66dc61c09b996633b#egg=paho-mqtt
 -e git+https://github.com/pymssql/pymssql.git@3bc299936fe2d35196dd4c9ebc8a22777f0c97e6#egg=pymssql
+cachetools==2.0.0
 isodate==0.5.4
 PyYAML==3.12

@@ -7,6 +7,7 @@ import functools
 import json
 import logging
 
+import cachetools
 import pymssql
 
 from roisto import util
@@ -108,6 +109,32 @@ def _arrange_predictions_by_stop(rows, matches):
     return dict(predictions_by_stop)
 
 
+def _create_similar_prediction_filter(prediction_change_threshold_in_seconds,
+                                      cache_size):
+    prediction_cache = cachetools.LRUCache(maxsize=cache_size)
+    change_threshold = prediction_change_threshold_in_seconds
+
+    def is_changed(row):
+        """Check whether a prediction has changed enough."""
+        arrival_id = row[0]
+        prediction = row[5]
+        is_changed = True
+        cached_prediction = prediction_cache.get(arrival_id, None)
+        if cached_prediction is not None:
+            is_changed = abs((prediction - cached_prediction).total_seconds(
+            )) >= change_threshold
+        # Update the cache.
+        if is_changed:
+            prediction_cache[arrival_id] = prediction
+        return is_changed
+
+    def filter_similar_predictions(rows):
+        """Filter out almost unchanged predictions."""
+        return list(filter(is_changed, rows))
+
+    return filter_similar_predictions
+
+
 class PredictionFilter:
     """Filter out already handled predictions."""
 
@@ -119,7 +146,6 @@ class PredictionFilter:
         # A set of Arrival.Id values where the modification time matches
         # self._max_modification.
         self._arrival_ids_modified_latest = set()
-        self._previously_estimated = {}
 
     def update(self, rows):
         """Find relevant values for filtering."""
@@ -129,7 +155,6 @@ class PredictionFilter:
                 row[0]
                 for row in rows if row[6] == self._max_modification
             }
-            self._previously_estimated = {row[0]: row[5] for row in rows}
         else:
             LOG.error('PredictionFilter.update() must be called with a '
                       'non-empty sequence.')
@@ -146,12 +171,10 @@ class PredictionFilter:
         01/01/98 13:59:59.995 == 01/01/98 13:59:59.998
         is expected to be true for datetime in SQL Server.
         """
-        fresh = (row for row in rows
-                 if not (row[6] == self._max_modification and row[0] in
-                         self._arrival_ids_modified_latest))
         fresh = [
-            row for row in fresh
-            if self._previously_estimated.get(row[0], None) != row[5]
+            row for row in rows
+            if not (row[6] == self._max_modification and row[0] in
+                    self._arrival_ids_modified_latest)
         ]
         return fresh
 
@@ -319,6 +342,12 @@ class PredictionPoller:
         self._utc_offset_mapper = mapper.Mapper(self._update_utc_offsets,
                                                 _parse_utc_offsets)
 
+        # Parameters for avoiding forwarding predictions too similar to
+        # previous ones.
+        self._prediction_change_threshold_in_seconds = config['filter'][
+            'prediction_change_threshold_in_seconds']
+        self._prediction_cache_size = config['filter']['prediction_cache_size']
+
     async def _connect_and_query(self, connect, query):
         """Connect and query once.
 
@@ -423,6 +452,9 @@ class PredictionPoller:
 
     async def _keep_polling_predictions(self):
         prediction_filter = PredictionFilter()
+        filter_similar_predictions = _create_similar_prediction_filter(
+            self._prediction_change_threshold_in_seconds,
+            self._prediction_cache_size)
         modified_utc_dt = (datetime.datetime.utcnow() - datetime.timedelta(
             seconds=self._prediction_poll_sleep_in_seconds))
         while True:
@@ -435,6 +467,7 @@ class PredictionPoller:
             result = await self._connect_and_query(self._roi_connect, query)
             old_len = len(result)
             result = prediction_filter.filter(result)
+            result = filter_similar_predictions(result)
             new_len = len(result)
             LOG.debug('Got %s predictions of which %s were new.', old_len,
                       new_len)
