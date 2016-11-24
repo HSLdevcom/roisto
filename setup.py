@@ -32,6 +32,7 @@ setup(
     keywords='doi roi noptis jore mqtt',
     packages=['roisto'],
     install_requires=[
+        'cachetools>=2.0.0,<2.1.0',
         'isodate>=0.5.4,<1',
         'paho-mqtt>=1.2,<2',
         'pymssql>=2.1.3,<3',
