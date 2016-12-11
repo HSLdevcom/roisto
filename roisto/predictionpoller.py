@@ -540,7 +540,8 @@ class PredictionPoller:
             modified_utc = _format_datetime_for_sql(modified_utc_dt)
             query = PredictionPoller.PREDICTION_QUERY.format(
                 modified_utc=modified_utc)
-            LOG.debug('Starting to wait for MQTT connection.')
+            LOG.debug('Prediction polling starting to wait for the MQTT '
+                      'connection.')
             await self._is_mqtt_connected.wait()
             LOG.debug('Querying predictions modified at or after %s from ROI.',
                       modified_utc_dt.isoformat())
@@ -579,7 +580,8 @@ class PredictionPoller:
             modified_utc = _format_datetime_for_sql(modified_utc_dt)
             query = PredictionPoller.EVENT_QUERY.format(
                 modified_utc=modified_utc)
-            LOG.debug('Starting to wait for MQTT connection.')
+            LOG.debug('Event polling starting to wait for the MQTT '
+                      'connection.')
             await self._is_mqtt_connected.wait()
             LOG.debug('Querying events modified at or after %s from ROI.',
                       modified_utc_dt.isoformat())
@@ -604,7 +606,7 @@ class PredictionPoller:
 
     async def run(self):
         """Run the PredictionPoller."""
-        LOG.debug('Starting to poll predictions.')
+        LOG.debug('Starting to poll events and predictions.')
         futures = [
             self._async_helper.ensure_future(self._keep_polling_predictions()),
             self._async_helper.ensure_future(self._keep_polling_events()),
