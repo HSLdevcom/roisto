@@ -3,13 +3,16 @@ pubtrans:
     port: 1433
     username: 'MY_PUBTRANS_USERNAME'
     password: 'MY_PUBTRANS_PASSWORD'
-    prediction_poll_sleep: 'PT60S'
     doi_database: &doi 'PUBTRANS_DOI_DATABASE_NAME'
     roi_database: &roi 'PUBTRANS_ROI_DATABASE_NAME'
     tds_version: '7.2'
-    filter:
-        prediction_change_threshold_in_seconds: 5
-        prediction_cache_size: 100000
+    prediction_change_threshold_in_seconds: 5
+    prediction_cache_size: 100000
+    event_cache_size: 100000
+    prediction_poll_sleep: 'PT60S'
+    event_poll_sleep: 'PT2S'
+    prediction_mqtt_topic_mid: 'prediction/stop/'
+    event_mqtt_topic_mid: 'event/stop/'
 mqtt:
     host: 'MY_MQTT_BROKER.com'
     port: 1883
