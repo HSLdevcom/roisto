@@ -18,6 +18,23 @@ LOG = logging.getLogger(__name__)
 
 MINUTES_IN_HOUR = 60
 
+# FIXME: Use rda* tables when they are ready. Meanwhile, use numeric values.
+DEPARTURE_STATES = {
+    0: 'NOTEXPECTED',
+    1: 'NOTCALLED',
+    2: 'EXPECTED',
+    3: 'CANCELLED',
+    4: 'INHIBITED',
+    6: 'ATSTOP',
+    7: 'BOARDING',
+    8: 'BOARDINGCLOSED',
+    9: 'DEPARTED',
+    10: 'PASSED',
+    11: 'MISSED',
+    12: 'REPLACED',
+    13: 'ASSUMEDDEPARTED',
+}
+
 
 def _minutes_to_hours_string(minutes):
     sign = '+'
@@ -63,17 +80,17 @@ def _parse_stops(rows):
 
 def _parse_journeys(rows):
     return {
-        row[1]: {
-            'JoreLineId': row[2],
-            'JoreDirection': row[3],
-            'LocalizedStartTime': row[4],
+        row[0]: {
+            'JoreLineId': row[1],
+            'JoreDirection': row[2],
+            'LocalizedStartTime': row[3],
         }
         for row in rows
     }
 
 
 def _parse_utc_offsets(rows):
-    return {row[1]: row[2] for row in rows}
+    return {row[0]: row[1] for row in rows}
 
 
 def _arrange_prediction(row, match):
@@ -82,8 +99,8 @@ def _arrange_prediction(row, match):
     utc_offset = match['utc_offset']
 
     start_naive = journey_info['LocalizedStartTime']
-    scheduled_naive = row[4]
-    predicted_naive = row[5]
+    scheduled_naive = row[3]
+    predicted_naive = row[4]
     start_time = _combine_into_timestamp(start_naive, utc_offset)
     scheduled_time = _combine_into_timestamp(scheduled_naive, utc_offset)
     predicted_time = _combine_into_timestamp(predicted_naive, utc_offset)
@@ -110,6 +127,38 @@ def _arrange_predictions_by_stop(rows, matches):
     return dict(predictions_by_stop)
 
 
+def _arrange_event(row, match):
+    stop = match['stop']
+    journey_info = match['journey_info']
+    utc_offset = match['utc_offset']
+
+    start_naive = journey_info['LocalizedStartTime']
+    scheduled_naive = row[3]
+    event = DEPARTURE_STATES[row[4]]
+    start_time = _combine_into_timestamp(start_naive, utc_offset)
+    scheduled_time = _combine_into_timestamp(scheduled_naive, utc_offset)
+    prediction = {
+        'joreStopId': stop,
+        'joreLineId': journey_info['JoreLineId'],
+        'joreLineDirection': journey_info['JoreDirection'],
+        'journeyStartTime': start_time,
+        'scheduledArrivalTime': scheduled_time,
+        'event': event,
+    }
+    return (stop, prediction)
+
+
+def _arrange_events_by_stop(rows, matches):
+    events_by_stop = collections.defaultdict(list)
+    for (row, match) in zip(rows, matches):
+        if match is None:
+            LOG.debug('Match is not available for event row: %s', str(row))
+        else:
+            stop, event = _arrange_event(row, match)
+            events_by_stop[stop].append(event)
+    return dict(events_by_stop)
+
+
 def _create_filter(cache_size, extract, check_for_change):
     cache = cachetools.LRUCache(maxsize=cache_size)
 
@@ -134,7 +183,7 @@ def _create_filter(cache_size, extract, check_for_change):
 def _extract_departure_id_and_event(row):
     # FIXME: Check after implementation of query.
     departure_id = row[0]
-    event = row[5]
+    event = row[4]
     return departure_id, event
 
 
@@ -144,7 +193,7 @@ def _check_prediction_for_change(threshold_in_s, current, old):
 
 def _extract_arrival_id_and_prediction(row):
     arrival_id = row[0]
-    prediction = row[5]
+    prediction = row[4]
     return arrival_id, prediction
 
 
@@ -163,10 +212,10 @@ class PredictionFilter:
     def update(self, rows):
         """Find relevant values for filtering."""
         if rows:
-            self._max_modification = max(row[6] for row in rows)
+            self._max_modification = max(row[5] for row in rows)
             self._arrival_ids_modified_latest = {
                 row[0]
-                for row in rows if row[6] == self._max_modification
+                for row in rows if row[5] == self._max_modification
             }
         else:
             LOG.error('PredictionFilter.update() must be called with a '
@@ -186,7 +235,7 @@ class PredictionFilter:
         """
         fresh = [
             row for row in rows
-            if not (row[6] == self._max_modification and row[0] in
+            if not (row[5] == self._max_modification and row[0] in
                     self._arrival_ids_modified_latest)
         ]
         return fresh
@@ -212,29 +261,47 @@ class PredictionPoller:
     PREDICTION_QUERY = """
         SELECT
             CONVERT(CHAR(16), A.Id) AS ArrivalId,
-            CONVERT(CHAR(16), DVJ.Id) AS DatedVehicleJourneyId,
-            CONCAT(
-                CONVERT(CHAR(8), DVJ.OperatingDayDate, 112),
-                ':',
-                CONVERT(CHAR(16), DVJ.Gid)
-            ) AS DatedVehicleJourneyUniqueGid,
+            CONVERT(CHAR(16), A.IsOnDatedVehicleJourneyId) AS DatedVehicleJourneyId,
             CONVERT(CHAR(16), A.IsTargetedAtJourneyPatternPointGid
             ) AS JourneyPatternPointGid,
             A.TimetabledLatestDateTime,
             A.EstimatedDateTime,
             A.LastModifiedUTCDateTime
         FROM
-            Arrival AS A,
-            DatedVehicleJourney AS DVJ
+            Arrival AS A
         WHERE
-            A.IsOnDatedVehicleJourneyId = DVJ.Id
-            AND DVJ.IsOnDirectionOfLineGid IS NOT NULL
-            AND A.LastModifiedUTCDateTime >= '{modified_utc}'
+            A.LastModifiedUTCDateTime >= '{modified_utc}'
             AND A.EstimatedDateTime IS NOT NULL
             AND A.LastModifiedUTCDateTime IS NOT NULL
             AND (
                 A.IsTargetedAtJourneyPatternPointGid % 10000000 < 1999000
                 OR A.IsTargetedAtJourneyPatternPointGid % 10000000 > 1999999
+            )
+    """
+    # Cut off via points.
+    #
+    # FIXME: Use rda* tables when they are ready. Meanwhile, use numeric
+    #        values.
+    # FIXME: To speed things up, do not join with DatedVehicleJourney. We do
+    # get extra events then, though.
+    EVENT_QUERY = """
+        SELECT
+            CONVERT(CHAR(16), D.Id) AS DepartureId,
+            CONVERT(CHAR(16), D.IsOnDatedVehicleJourneyId) AS DatedVehicleJourneyId,
+            CONVERT(CHAR(16), D.IsTargetedAtJourneyPatternPointGid
+            ) AS JourneyPatternPointGid,
+            D.TimetabledEarliestDateTime,
+            D.State,
+            D.LastModifiedUTCDateTime
+        FROM
+            Departure AS D
+        WHERE
+            D.State IN (9, 10, 11)
+            AND D.LastModifiedUTCDateTime >= '{modified_utc}'
+            AND D.LastModifiedUTCDateTime IS NOT NULL
+            AND (
+                D.IsTargetedAtJourneyPatternPointGid % 10000000 < 1999000
+                OR D.IsTargetedAtJourneyPatternPointGid % 10000000 > 1999999
             )
     """
     # 1999xxx should refer to via points. Mono does not care about them, so
@@ -256,11 +323,6 @@ class PredictionPoller:
     JOURNEY_QUERY = """
         SELECT
             CONVERT(CHAR(16), DVJ.Id) AS DatedVehicleJourneyId,
-            CONCAT(
-                CONVERT(CHAR(8), DVJ.OperatingDayDate, 112),
-                ':',
-                CONVERT(CHAR(16), DVJ.Gid)
-            ) AS DatedVehicleJourneyUniqueGid,
             KVV.StringValue AS JoreLineId,
             SUBSTRING(
                 CONVERT(CHAR(16), VJT.IsWorkedOnDirectionOfLineGid),
@@ -315,11 +377,6 @@ class PredictionPoller:
     UTC_OFFSET_QUERY = """
         SELECT
             CONVERT(CHAR(16), Id) AS DatedVehicleJourneyId,
-            CONCAT(
-                CONVERT(CHAR(8), OperatingDayDate, 112),
-                ':',
-                CONVERT(CHAR(16), Gid)
-            ) AS DatedVehicleJourneyUniqueGid,
             UTCOffsetMinutes
         FROM
             DatedVehicleJourney
@@ -347,6 +404,8 @@ class PredictionPoller:
 
         self._prediction_poll_sleep_in_seconds = util.convert_duration_to_seconds(
             config['prediction_poll_sleep'])
+        self._event_poll_sleep_in_seconds = util.convert_duration_to_seconds(
+            config['event_poll_sleep'])
 
         # Get Jore information from PubTrans IDs using Mappers.
         self._stop_mapper = mapper.Mapper(self._update_stops, _parse_stops)
@@ -357,9 +416,13 @@ class PredictionPoller:
 
         # Parameters for avoiding forwarding predictions too similar to
         # previous ones.
-        self._prediction_change_threshold_in_seconds = config['filter'][
+        self._prediction_change_threshold_in_seconds = config[
             'prediction_change_threshold_in_seconds']
-        self._prediction_cache_size = config['filter']['prediction_cache_size']
+        self._prediction_cache_size = config['prediction_cache_size']
+        self._event_cache_size = config['event_cache_size']
+
+        self._prediction_mqtt_topic_mid = config['prediction_mqtt_topic_mid']
+        self._event_mqtt_topic_mid = config['event_mqtt_topic_mid']
 
     async def _connect_and_query(self, connect, query):
         """Connect and query once.
@@ -426,23 +489,23 @@ class PredictionPoller:
         return any((future.result() for future in done))
 
     def _get_matches(self, row):
-        jpp = row[3]
+        jpp = row[2]
         stop = self._stop_mapper.get(jpp)
         if stop is None:
             LOG.debug('This JourneyPatternPointGid was not found from '
                       'collected stop information: %s. Row was: %s', jpp,
                       str(row))
-        dvj = row[2]
+        dvj = row[1]
         journey_info = self._journey_mapper.get(dvj)
         if journey_info is None:
-            LOG.debug('This DatedVehicleJourneyUniqueGid was not found '
-                      'from collected journey information: %s. Row was: %s',
-                      dvj, str(row))
+            LOG.debug('This DatedVehicleJourneyId was not found from '
+                      'collected journey information: %s. Row was: %s', dvj,
+                      str(row))
         utc_offset = self._utc_offset_mapper.get(dvj)
         if utc_offset is None:
-            LOG.debug('This DatedVehicleJourneyUniqueGid was not found '
-                      'from collected UTC offset information: %s. Row was: %s',
-                      dvj, str(row))
+            LOG.debug('This DatedVehicleJourneyId was not found from '
+                      'collected UTC offset information: %s. Row was: %s', dvj,
+                      str(row))
         if stop is None or journey_info is None or utc_offset is None:
             return None
         return {
@@ -481,6 +544,7 @@ class PredictionPoller:
             await self._is_mqtt_connected.wait()
             LOG.debug('Querying predictions from ROI:%s', query)
             result = await self._connect_and_query(self._roi_connect, query)
+            message_timestamp = _create_timestamp()
             old_len = len(result)
             result = prediction_filter.filter(result)
             result = filter_similar_predictions(result)
@@ -488,12 +552,11 @@ class PredictionPoller:
             LOG.debug('Got %s predictions of which %s were new.', old_len,
                       new_len)
             if result:
-                message_timestamp = _create_timestamp()
                 matches = await self._get_all_matches(result)
                 predictions_by_stop = _arrange_predictions_by_stop(result,
                                                                    matches)
                 for stop, predictions in predictions_by_stop.items():
-                    topic_suffix = stop
+                    topic_suffix = self._prediction_mqtt_topic_mid + stop
                     message = {
                         'messageTimestamp': message_timestamp,
                         'predictions': predictions,
@@ -504,8 +567,45 @@ class PredictionPoller:
             await self._async_helper.sleep(
                 self._prediction_poll_sleep_in_seconds)
 
+    async def _keep_polling_events(self):
+        filter_repeated_events = _create_filter(
+            cache_size=self._event_cache_size,
+            extract=_extract_departure_id_and_event,
+            check_for_change=operator.ne)
+        modified_utc_dt = (datetime.datetime.utcnow() - datetime.timedelta(
+            seconds=self._event_poll_sleep_in_seconds))
+        while True:
+            modified_utc = _format_datetime_for_sql(modified_utc_dt)
+            query = PredictionPoller.EVENT_QUERY.format(
+                modified_utc=modified_utc)
+            LOG.debug('Starting to wait for MQTT connection.')
+            await self._is_mqtt_connected.wait()
+            LOG.debug('Querying events from ROI:%s', query)
+            result = await self._connect_and_query(self._roi_connect, query)
+            message_timestamp = _create_timestamp()
+            old_len = len(result)
+            result = filter_repeated_events(result)
+            new_len = len(result)
+            LOG.debug('Got %s events of which %s were new.', old_len, new_len)
+            if result:
+                matches = await self._get_all_matches(result)
+                events_by_stop = _arrange_events_by_stop(result, matches)
+                for stop, events in events_by_stop.items():
+                    topic_suffix = self._event_mqtt_topic_mid + stop
+                    message = {
+                        'messageTimestamp': message_timestamp,
+                        'events': events,
+                    }
+                    await self._queue.put((topic_suffix, json.dumps(message)))
+                modified_utc_dt = max(row[5] for row in result)
+            await self._async_helper.sleep(self._event_poll_sleep_in_seconds)
+
     async def run(self):
         """Run the PredictionPoller."""
         LOG.debug('Starting to poll predictions.')
-        await self._keep_polling_predictions()
+        futures = [
+            self._async_helper.ensure_future(self._keep_polling_predictions()),
+            self._async_helper.ensure_future(self._keep_polling_events()),
+        ]
+        await self._async_helper.wait_for_first(futures)
         LOG.error('Prediction polling ended unexpectedly.')
