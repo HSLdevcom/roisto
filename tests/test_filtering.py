@@ -2,8 +2,18 @@
 """Test prediction filtering."""
 
 import datetime
+import functools
 
 import roisto.predictionpoller
+
+
+def test_check_prediction_for_change():
+    current = datetime.datetime(2016, 11, 24, 11, 51)
+    old = datetime.datetime(2016, 11, 24, 11, 50, 32, 227000)
+    assert roisto.predictionpoller._check_prediction_for_change(10, current,
+                                                                old)
+    assert not roisto.predictionpoller._check_prediction_for_change(
+        30, current, old)
 
 
 def test_similar_prediction_filter():
@@ -43,8 +53,11 @@ def test_similar_prediction_filter():
             datetime.datetime(2016, 11, 24, 11, 33, 12, 860000),
             datetime.datetime(2016, 11, 24, 9, 33, 21, 480000), ),
     ]
-    filter_similar_predictions = roisto.predictionpoller._create_similar_prediction_filter(
-        5, 10)
+    filter_similar_predictions = roisto.predictionpoller._create_filter(
+        cache_size=10,
+        extract=roisto.predictionpoller._extract_arrival_id_and_prediction,
+        check_for_change=functools.partial(
+            roisto.predictionpoller._check_prediction_for_change, 5))
 
     first_result = filter_similar_predictions(first_rows)
     assert first_result == first_rows

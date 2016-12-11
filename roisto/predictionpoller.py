@@ -6,6 +6,7 @@ import datetime
 import functools
 import json
 import logging
+import operator
 
 import cachetools
 import pymssql
@@ -109,30 +110,42 @@ def _arrange_predictions_by_stop(rows, matches):
     return dict(predictions_by_stop)
 
 
-def _create_similar_prediction_filter(prediction_change_threshold_in_seconds,
-                                      cache_size):
-    prediction_cache = cachetools.LRUCache(maxsize=cache_size)
-    change_threshold = prediction_change_threshold_in_seconds
+def _create_filter(cache_size, extract, check_for_change):
+    cache = cachetools.LRUCache(maxsize=cache_size)
 
     def is_changed(row):
-        """Check whether a prediction has changed enough."""
-        arrival_id = row[0]
-        prediction = row[5]
+        """Check whether a value has changed enough."""
+        key, current = extract(row)
         is_changed = True
-        cached_prediction = prediction_cache.get(arrival_id, None)
-        if cached_prediction is not None:
-            is_changed = abs((prediction - cached_prediction).total_seconds(
-            )) >= change_threshold
-        # Update the cache.
+        cached = cache.get(key, None)
+        if cached is not None:
+            is_changed = check_for_change(current, cached)
         if is_changed:
-            prediction_cache[arrival_id] = prediction
+            cache[key] = current
         return is_changed
 
-    def filter_similar_predictions(rows):
-        """Filter out almost unchanged predictions."""
+    def filter_out_unchanged(rows):
+        """Filter out rows that have not changed enough since last call."""
         return list(filter(is_changed, rows))
 
-    return filter_similar_predictions
+    return filter_out_unchanged
+
+
+def _extract_departure_id_and_event(row):
+    # FIXME: Check after implementation of query.
+    departure_id = row[0]
+    event = row[5]
+    return departure_id, event
+
+
+def _check_prediction_for_change(threshold_in_s, current, old):
+    return abs((current - old).total_seconds()) >= threshold_in_s
+
+
+def _extract_arrival_id_and_prediction(row):
+    arrival_id = row[0]
+    prediction = row[5]
+    return arrival_id, prediction
 
 
 class PredictionFilter:
@@ -417,19 +430,19 @@ class PredictionPoller:
         stop = self._stop_mapper.get(jpp)
         if stop is None:
             LOG.debug('This JourneyPatternPointGid was not found from '
-                      'collected stop information: %s. Prediction row '
-                      'was: %s', jpp, str(row))
+                      'collected stop information: %s. Row was: %s', jpp,
+                      str(row))
         dvj = row[2]
         journey_info = self._journey_mapper.get(dvj)
         if journey_info is None:
             LOG.debug('This DatedVehicleJourneyUniqueGid was not found '
-                      'from collected journey information: %s. Prediction '
-                      'row was: %s', dvj, str(row))
+                      'from collected journey information: %s. Row was: %s',
+                      dvj, str(row))
         utc_offset = self._utc_offset_mapper.get(dvj)
         if utc_offset is None:
             LOG.debug('This DatedVehicleJourneyUniqueGid was not found '
-                      'from collected UTC offset information: %s. '
-                      'Prediction row was: %s', dvj, str(row))
+                      'from collected UTC offset information: %s. Row was: %s',
+                      dvj, str(row))
         if stop is None or journey_info is None or utc_offset is None:
             return None
         return {
@@ -445,16 +458,19 @@ class PredictionPoller:
             matches = [self._get_matches(row) for row in rows]
             if await self._update_mappers():
                 LOG.debug('At least one Jore mapper was updated so try '
-                          'matching predictions again.')
+                          'matching again.')
             else:
                 is_every_row_matched = True
         return matches
 
     async def _keep_polling_predictions(self):
         prediction_filter = PredictionFilter()
-        filter_similar_predictions = _create_similar_prediction_filter(
-            self._prediction_change_threshold_in_seconds,
-            self._prediction_cache_size)
+        filter_similar_predictions = _create_filter(
+            cache_size=self._prediction_cache_size,
+            extract=_extract_arrival_id_and_prediction,
+            check_for_change=functools.partial(
+                _check_prediction_for_change,
+                self._prediction_change_threshold_in_seconds))
         modified_utc_dt = (datetime.datetime.utcnow() - datetime.timedelta(
             seconds=self._prediction_poll_sleep_in_seconds))
         while True:
