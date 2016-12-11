@@ -542,7 +542,8 @@ class PredictionPoller:
                 modified_utc=modified_utc)
             LOG.debug('Starting to wait for MQTT connection.')
             await self._is_mqtt_connected.wait()
-            LOG.debug('Querying predictions from ROI:%s', query)
+            LOG.debug('Querying predictions modified at or after %s from ROI.',
+                      modified_utc_dt.isoformat())
             result = await self._connect_and_query(self._roi_connect, query)
             message_timestamp = _create_timestamp()
             old_len = len(result)
@@ -580,7 +581,8 @@ class PredictionPoller:
                 modified_utc=modified_utc)
             LOG.debug('Starting to wait for MQTT connection.')
             await self._is_mqtt_connected.wait()
-            LOG.debug('Querying events from ROI:%s', query)
+            LOG.debug('Querying events modified at or after %s from ROI.',
+                      modified_utc_dt.isoformat())
             result = await self._connect_and_query(self._roi_connect, query)
             message_timestamp = _create_timestamp()
             old_len = len(result)
