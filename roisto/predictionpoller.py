@@ -27,16 +27,20 @@ def _minutes_to_hours_string(minutes):
         sign=sign, hours=hours, minutes=minutes_left)
 
 
-def _format_datetime_for_sql(dt):
-    return dt.strftime('%Y%m%d %H:%M:%S.') + dt.strftime('%f')[:3]
-
-
 def _combine_into_timestamp(naive_datetime, utc_offset_minutes):
     naive_string = naive_datetime.isoformat()
     if '.' in naive_string:
         # Do not show more than milliseconds.
         naive_string = naive_string[:-3]
     return naive_string + _minutes_to_hours_string(utc_offset_minutes)
+
+
+def _create_timestamp():
+    return _combine_into_timestamp(datetime.datetime.utcnow(), 0)
+
+
+def _format_datetime_for_sql(dt):
+    return dt.strftime('%Y%m%d %H:%M:%S.') + dt.strftime('%f')[:3]
 
 
 def _connect_and_query_synchronously(connect, query):
@@ -50,10 +54,6 @@ def _connect_and_query_synchronously(connect, query):
 def _timestamp_day_shift(now, days):
     then = now + datetime.timedelta(days=days)
     return then.strftime('%Y-%m-%d')
-
-
-def _create_timestamp():
-    return _combine_into_timestamp(datetime.datetime.utcnow(), 0)
 
 
 def _parse_stops(rows):
