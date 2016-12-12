@@ -11,8 +11,8 @@ pubtrans:
     event_cache_size: 100000
     prediction_poll_sleep: 'PT60S'
     event_poll_sleep: 'PT2S'
-    prediction_mqtt_topic_mid: 'prediction/stop/'
-    event_mqtt_topic_mid: 'event/stop/'
+    prediction_mqtt_topic_mid: 'predictions/stop/'
+    event_mqtt_topic_mid: 'events/stop/'
 mqtt:
     host: 'MY_MQTT_BROKER.com'
     port: 1883
