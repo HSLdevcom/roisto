@@ -1,16 +1,16 @@
 pubtrans:
-    host: 'MY_PUBTRANS_SERVER.com'
-    port: 1433
-    username: 'MY_PUBTRANS_USERNAME'
-    password: 'MY_PUBTRANS_PASSWORD'
-    doi_database: &doi 'PUBTRANS_DOI_DATABASE_NAME'
-    roi_database: &roi 'PUBTRANS_ROI_DATABASE_NAME'
-    tds_version: '7.2'
+    sql:
+        host: 'MY_PUBTRANS_SERVER.com'
+        port: 1433
+        username: 'MY_PUBTRANS_USERNAME'
+        password: 'MY_PUBTRANS_PASSWORD'
+        doi_database: &doi 'PUBTRANS_DOI_DATABASE_NAME'
+        roi_database: &roi 'PUBTRANS_ROI_DATABASE_NAME'
+    pre_journey_prediction_threshold_in_seconds: 180
     prediction_change_threshold_in_seconds: 5
     prediction_cache_size: 100000
     event_cache_size: 100000
-    prediction_poll_sleep: 'PT60S'
-    event_poll_sleep: 'PT2S'
+    poll_interval: 'PT10S'
     prediction_mqtt_topic_mid: 'predictions/stop/'
     event_mqtt_topic_mid: 'events/stop/'
 mqtt:

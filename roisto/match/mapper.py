@@ -3,7 +3,11 @@
 
 
 class Mapper:
-    """Key-value store with updating."""
+    """Key-value store with updating.
+
+    Mapper remembers if something was asked for but was not found. If it still
+    cannot be found after updating, it will be ignored until the next update.
+    """
 
     def __init__(self, update, parse):
         self._update = update
@@ -27,7 +31,7 @@ class Mapper:
 
         Otherwise return None.
         """
-        mapped = self._mapping.get(key)
+        mapped = self._mapping.get(key, None)
         if mapped is None:
             if key in self._ignored:
                 self._attempted.add(key)
