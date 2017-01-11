@@ -394,6 +394,8 @@ class Poller:
             await self._async_helper.wait_forever(tasks)
             modified_utc_dt = max(row['LastModifiedUTCDateTime']
                                   for row in rows)
+        else:
+            LOG.debug('Polling got empty results.')
         return modified_utc_dt
 
     async def _keep_polling(self):
