@@ -3,7 +3,6 @@
 
 import collections
 import datetime
-import functools
 import json
 import logging
 
@@ -79,26 +78,30 @@ def _extract_departure_id_and_event(matched):
     return matched['source']['DepartureId'], matched['source']['State']
 
 
-def _check_prediction_for_inclusion(pre_journey_threshold_in_s,
-                                    change_threshold_in_s, current, cached):
-    """Rule out too early predictions and predictions with little change.
+def _create_prediction_checker(pre_journey_threshold_in_s,
+                               change_threshold_in_s):
+    def check_prediction_for_inclusion(current, cached):
+        """Rule out too early predictions and predictions with little change.
 
-    Check that a prediction is not sent too early (VPC bug) and that the
-    prediction has changed enough since last time it changed enough.
-    """
-    is_kept = False
-    is_given_early = (
-        current['StartUTCDateTime'] - current['LastModifiedUTCDateTime']
-    ).total_seconds() > pre_journey_threshold_in_s
-    is_predicted_early = current['TargetDateTime'] < current[
-        'TimetabledEarliestDateTime']
-    if not (is_given_early and is_predicted_early):
-        if cached is None:
-            is_kept = True
-        else:
-            is_kept = abs((current['TargetDateTime'] - cached['TargetDateTime']
-                           ).total_seconds()) >= change_threshold_in_s
-    return is_kept
+        Check that a prediction is not sent too early (VPC bug) and that the
+        prediction has changed enough since last time it changed enough.
+        """
+        is_kept = False
+        is_given_early = (
+            current['StartUTCDateTime'] - current['LastModifiedUTCDateTime']
+        ).total_seconds() > pre_journey_threshold_in_s
+        is_predicted_early = current['TargetDateTime'] < current[
+            'TimetabledEarliestDateTime']
+        if not (is_given_early and is_predicted_early):
+            if cached is None:
+                is_kept = True
+            else:
+                is_kept = abs((current['TargetDateTime'] - cached[
+                    'TargetDateTime']).total_seconds(
+                    )) >= change_threshold_in_s
+        return is_kept
+
+    return check_prediction_for_inclusion
 
 
 def _extract_departure_id_and_prediction(matched):
@@ -405,8 +408,7 @@ class Poller:
             filter_=_create_filter(
                 cache_size=self._prediction_cache_size,
                 extract_cache_key_value=_extract_departure_id_and_prediction,
-                is_included=functools.partial(
-                    _check_prediction_for_inclusion,
+                is_included=_create_prediction_checker(
                     self._pre_journey_prediction_threshold_in_seconds,
                     self._prediction_change_threshold_in_seconds)),
             serialize=_create_prediction_serializer(
