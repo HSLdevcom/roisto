@@ -20,8 +20,8 @@ def _connect_and_query_synchronously(connect, query):
 class SQLConnector:
     """Connect to and query the SQL database."""
 
-    def __init__(self, config, async_helper):
-        self._async_helper = async_helper
+    def __init__(self, config, loop):
+        self._loop = loop
 
         self._connect = functools.partial(
             pymssql.connect,
@@ -42,8 +42,8 @@ class SQLConnector:
         """
         result = []
         try:
-            result = await self._async_helper.run_in_executor(
-                _connect_and_query_synchronously, connect, query)
+            result = await self._loop.run_in_executor(
+                None, _connect_and_query_synchronously, connect, query)
         except pymssql.Error as ex:
             LOG.warning('SQL error: %s', str(ex))
         except pymssql.Warning as ex:

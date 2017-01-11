@@ -20,8 +20,8 @@ class MQTTPublisher:
         mqtt.MQTT_LOG_ERR: logging.ERROR,
     }
 
-    def __init__(self, config, async_helper, queue, is_mqtt_connected):
-        self._async_helper = async_helper
+    def __init__(self, config, loop, queue, is_mqtt_connected):
+        self._loop = loop
         self._queue = queue
         self._is_mqtt_connected = is_mqtt_connected
 
@@ -51,20 +51,18 @@ class MQTTPublisher:
     def _cb_on_connect(self, mqtt_client, userdata, flags, rc):
         if rc == 0:
             LOG.info('MQTT connection attempt succeeded.')
-            self._async_helper.call_soon_threadsafe(
-                self._is_mqtt_connected.set)
+            self._loop.call_soon_threadsafe(self._is_mqtt_connected.set)
         else:
             LOG.warning('MQTT connection attempt failed: %s',
                         mqtt.connack_string(rc))
-            self._async_helper.call_soon_threadsafe(
-                self._is_mqtt_connected.clear)
+            self._loop.call_soon_threadsafe(self._is_mqtt_connected.clear)
 
     def _cb_on_disconnect(self, mqtt_client, userdata, rc):
         if rc == 0:
             LOG.info('Disconnection succeeded.')
         else:
             LOG.warning('Lost MQTT connection.')
-        self._async_helper.call_soon_threadsafe(self._is_mqtt_connected.clear)
+        self._loop.call_soon_threadsafe(self._is_mqtt_connected.clear)
 
     def _cb_on_log(self, mqtt_client, userdata, level, buf):
         log_level = MQTTPublisher._LOG_MATCH[level]

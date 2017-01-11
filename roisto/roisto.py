@@ -3,13 +3,13 @@
 """Main module."""
 
 import asyncio
+import concurrent.futures
 import logging
 import logging.config
 
 from roisto import cmdline
 from roisto import mqttpublisher
 from roisto import poller
-from roisto import util
 
 
 def main():
@@ -22,22 +22,22 @@ def main():
     logger.info('roisto started.')
 
     loop = asyncio.get_event_loop()
-    async_helper = util.AsyncHelper(loop, executor=None)
 
     queue = asyncio.Queue()
     is_mqtt_connected = asyncio.Event(loop=loop)
 
-    mqtt_publisher = mqttpublisher.MQTTPublisher(config['mqtt'], async_helper,
-                                                 queue, is_mqtt_connected)
-
-    poller_ = poller.Poller(config['pubtrans'], async_helper, queue,
-                           is_mqtt_connected)
+    mqtt_publisher = mqttpublisher.MQTTPublisher(config['mqtt'], loop, queue,
+                                                 is_mqtt_connected)
+    poller_ = poller.Poller(config['pubtrans'], loop, queue, is_mqtt_connected)
 
     tasks = [
         mqtt_publisher.run(),
         poller_.run(),
     ]
-    loop.run_until_complete(async_helper.wait_for_first(tasks))
+    loop.run_until_complete(
+        asyncio.wait(
+            tasks, loop=loop, return_when=concurrent.futures.FIRST_COMPLETED))
+
     logger.error('Either mqtt_publisher or poller_ completed.')
     loop.close()
 

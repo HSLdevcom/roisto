@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 """Poll the PubTrans SQL database."""
 
+import asyncio
 import collections
 import datetime
 import json
 import logging
 
 import cachetools
+import isodate
 
-from roisto import util
 from roisto import sqlconnector
 from roisto.match import journey
 from roisto.match import stop
@@ -257,6 +258,11 @@ def _format_datetime_for_sql(dt):
     return dt.strftime('%Y%m%d %H:%M:%S.') + dt.strftime('%f')[:3]
 
 
+def _convert_duration_to_seconds(duration):
+    """Convert ISO 8601 duration to float seconds."""
+    return isodate.parse_duration(duration).total_seconds()
+
+
 class Poller:
     """Poll predictions and events, match to Jore and forward to MONO."""
 
@@ -292,14 +298,13 @@ class Poller:
             )
     """
 
-    def __init__(self, config, async_helper, queue, is_mqtt_connected):
-        self._async_helper = async_helper
+    def __init__(self, config, loop, queue, is_mqtt_connected):
+        self._loop = loop
         self._queue = queue
         self._is_mqtt_connected = is_mqtt_connected
 
         # Connecting functions.
-        self._sql_connector = sqlconnector.SQLConnector(config['sql'],
-                                                        self._async_helper)
+        self._sql_connector = sqlconnector.SQLConnector(config['sql'], loop)
         # Get Jore information from PubTrans IDs using Mappers.
         self._stop_mapper = stop.create_stop_mapper(self._sql_connector)
         self._journey_mapper = journey.create_journey_mapper(
@@ -307,8 +312,8 @@ class Poller:
         self._utc_offset_mapper = utcoffset.create_utc_offset_mapper(
             self._sql_connector)
 
-        self._poll_interval_in_seconds = util.convert_duration_to_seconds(
-            config['poll_interval'])
+        self._poll_interval_in_seconds = _convert_duration_to_seconds(config[
+            'poll_interval'])
 
         self._pre_journey_prediction_threshold_in_seconds = config[
             'pre_journey_prediction_threshold_in_seconds']
@@ -353,7 +358,7 @@ class Poller:
             self._journey_mapper.update(),
             self._utc_offset_mapper.update(),
         ]
-        done, pending = await self._async_helper.wait(tasks)
+        done, pending = await asyncio.wait(tasks, loop=self._loop)
         if len(pending) > 0 or len(done) < len(tasks):
             LOG.error('At least one of the mapping updates failed. In '
                       'pending: %s', str(pending))
@@ -387,11 +392,11 @@ class Poller:
             LOG.debug('Polling got %s rows.', str(len(rows)))
             matched = await self._get_all_matches(rows)
             tasks = [
-                self._async_helper.ensure_future(
-                    process(matched, message_timestamp))
+                asyncio.ensure_future(
+                    process(matched, message_timestamp), loop=self._loop)
                 for process in processors
             ]
-            await self._async_helper.wait_forever(tasks)
+            await asyncio.wait(tasks, loop=self._loop)
             modified_utc_dt = max(row['LastModifiedUTCDateTime']
                                   for row in rows)
         else:
@@ -423,18 +428,20 @@ class Poller:
         modified_utc_dt = (datetime.datetime.utcnow() - datetime.timedelta(
             seconds=self._poll_interval_in_seconds))
         while True:
-            poll_fut = self._async_helper.ensure_future(
-                self._poll(processors, modified_utc_dt))
+            poll_fut = asyncio.ensure_future(
+                self._poll(processors, modified_utc_dt), loop=self._loop)
             futures = [
                 poll_fut,
-                self._async_helper.ensure_future(
-                    self._async_helper.sleep(self._poll_interval_in_seconds)),
+                asyncio.ensure_future(
+                    asyncio.sleep(
+                        self._poll_interval_in_seconds, loop=self._loop),
+                    loop=self._loop),
             ]
-            await self._async_helper.wait_forever(futures)
+            await asyncio.wait(futures, loop=self._loop)
             modified_utc_dt = poll_fut.result()
 
     async def run(self):
         """Run the Poller."""
         LOG.debug('Starting to poll events and predictions.')
-        await self._async_helper.ensure_future(self._keep_polling())
+        await asyncio.ensure_future(self._keep_polling(), loop=self._loop)
         LOG.error('Prediction polling ended unexpectedly.')
