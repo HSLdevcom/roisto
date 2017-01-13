@@ -30,7 +30,10 @@ setup(
         'Topic :: Internet',
     ],
     keywords='doi roi noptis jore mqtt',
-    packages=['roisto'],
+    packages=[
+        'roisto',
+        'roisto.match',
+    ],
     install_requires=[
         'cachetools>=2.0.0,<2.1.0',
         'isodate>=0.5.4,<1',
