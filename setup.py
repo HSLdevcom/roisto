@@ -41,18 +41,9 @@ setup(
         'pymssql>=2.1.3,<3',
         'PyYAML>=3.12,<4',
     ],
-    data_files=[
-        ('',
-            [
-                'LICENSE',
-                'LICENSE_AGPL',
-                'config.yaml.template',
-            ]
-        ),
-    ],
-    entry_points={
-        'console_scripts': [
-            'roisto=roisto.roisto:main',
-        ],
-    },
-)
+    data_files=[('', [
+        'LICENSE',
+        'LICENSE_AGPL',
+        'config.yaml.template',
+    ]), ],
+    entry_points={'console_scripts': ['roisto=roisto.roisto:main', ], }, )
