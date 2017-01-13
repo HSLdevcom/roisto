@@ -384,7 +384,7 @@ class Poller:
         query = Poller.POLLING_QUERY.format(modified_utc=modified_utc)
         LOG.debug('Polling starting to wait for the MQTT connection.')
         await self._is_mqtt_connected.wait()
-        LOG.debug('Querying for modifications at or after %s from ptROI.',
+        LOG.debug('Querying for modifications at or after %sZ from ptROI.',
                   modified_utc_dt.isoformat())
         rows = await self._sql_connector.query_from_roi(query)
         if rows:
