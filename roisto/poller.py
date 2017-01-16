@@ -171,8 +171,8 @@ def _arrange_prediction(matched):
         'joreLineId': journey['JoreLineId'],
         'joreLineDirection': journey['JoreDirection'],
         'journeyStartTime': start_time,
-        'scheduledArrivalTime': scheduled_time,
-        'predictedArrivalTime': predicted_time,
+        'scheduledDepartureTime': scheduled_time,
+        'predictedDepartureTime': predicted_time,
     }
     return stop, prediction
 
@@ -193,7 +193,7 @@ def _arrange_event(matched):
         'joreLineId': journey['JoreLineId'],
         'joreLineDirection': journey['JoreDirection'],
         'journeyStartTime': start_time,
-        'scheduledArrivalTime': scheduled_time,
+        'scheduledDepartureTime': scheduled_time,
         'event': event,
     }
     return stop, prediction
