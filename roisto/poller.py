@@ -63,20 +63,31 @@ def _create_filter(cache_size, extract_cache_key_value, is_included):
     return filter_
 
 
+def _is_train(jore_line_id):
+    """Return whether the given Jore line is for a train."""
+    return jore_line_id.startswith('300')
+
+
 def _check_event_for_inclusion(current, cached):
     """Check that the event is interesting and has changed."""
     is_kept = False
+    is_train = _is_train(current['JoreLineId'])
     # FIXME: Map integers to strings earlier and compare to strings here.
-    if current in [9, 10, 11]:
+    state = current['State']
+    if not is_train and state in [9, 10, 11]:
         if cached is None:
             is_kept = True
         else:
-            is_kept = current != cached
+            is_kept = state != cached['State']
     return is_kept
 
 
 def _extract_departure_id_and_event(matched):
-    return matched['source']['DepartureId'], matched['source']['State']
+    d = {
+        'State': matched['source']['State'],
+        'JoreLineId': matched['journey']['JoreLineId'],
+    }
+    return matched['source']['DepartureId'], d
 
 
 def _create_prediction_checker(pre_journey_threshold_in_s,
@@ -93,7 +104,8 @@ def _create_prediction_checker(pre_journey_threshold_in_s,
         ).total_seconds() > pre_journey_threshold_in_s
         is_predicted_early = current['TargetDateTime'] < current[
             'TimetabledEarliestDateTime']
-        if not (is_given_early and is_predicted_early):
+        is_train = _is_train(current['JoreLineId'])
+        if not is_train and not (is_given_early and is_predicted_early):
             if cached is None:
                 is_kept = True
             else:
@@ -118,6 +130,7 @@ def _extract_departure_id_and_prediction(matched):
     d['StartUTCDateTime'] = (
         matched['journey']['LocalizedStartTime'] - datetime.timedelta(
             minutes=matched['utc_offset']['UTCOffsetMinutes']))
+    d['JoreLineId'] = matched['journey']['JoreLineId']
     return source['DepartureId'], d
 
 
