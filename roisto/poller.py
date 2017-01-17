@@ -93,10 +93,15 @@ def _extract_departure_id_and_event(matched):
 def _create_prediction_checker(pre_journey_threshold_in_s,
                                change_threshold_in_s):
     def check_prediction_for_inclusion(current, cached):
-        """Rule out too early predictions and predictions with little change.
+        """Rule out uninteresting or erroneous predictions.
 
-        Check that a prediction is not sent too early (VPC bug) and that the
-        prediction has changed enough since last time it changed enough.
+        Currently uninteresting or erroneous:
+        - Predictions that are given too early and predict that the vehicle
+          will reach the stop too early.
+        - Trains as we should use predictions from the Finnish Transport
+          Agency.
+        - Predictions that have changed too little since last included
+          prediction.
         """
         is_kept = False
         is_given_early = (
