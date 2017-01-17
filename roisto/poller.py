@@ -68,24 +68,48 @@ def _is_train(jore_line_id):
     return jore_line_id.startswith('300')
 
 
-def _check_event_for_inclusion(current, cached):
-    """Check that the event is interesting and has changed."""
-    is_kept = False
-    is_train = _is_train(current['JoreLineId'])
-    # FIXME: Map integers to strings earlier and compare to strings here.
-    state = current['State']
-    if not is_train and state in [9, 10, 11]:
-        if cached is None:
-            is_kept = True
-        else:
-            is_kept = state != cached['State']
-    return is_kept
+def _create_event_checker(pre_journey_threshold_in_s):
+    def check_event_for_inclusion(current, cached):
+        """Rule out uninteresting or erroneous events.
+
+        Currently uninteresting or erroneous:
+        - Events that are not DEPARTED, MISSED, PASSED.
+        - Trains as we should use predictions from the Finnish Transport
+          Agency.
+        - Events for the first stop sent too early in comparison to journey
+          start time.
+        """
+        is_kept = False
+        is_given_early = (
+            current['StartUTCDateTime'] - current['LastModifiedUTCDateTime']
+        ).total_seconds() > pre_journey_threshold_in_s
+        is_first_stop = current['LocalizedStartTime'] == current[
+            'TimetabledEarliestDateTime']
+        is_train = _is_train(current['JoreLineId'])
+        # FIXME: Map integers to strings earlier and compare to strings here.
+        state = current['State']
+        if (not (is_first_stop and is_given_early) and not is_train and
+                state in [9, 10, 11]):
+            if cached is None:
+                is_kept = True
+            else:
+                is_kept = state != cached['State']
+        return is_kept
+
+    return check_event_for_inclusion
 
 
 def _extract_departure_id_and_event(matched):
     d = {
         'State': matched['source']['State'],
         'JoreLineId': matched['journey']['JoreLineId'],
+        'StartUTCDateTime': matched['journey']['LocalizedStartTime'] -
+        datetime.timedelta(minutes=matched['utc_offset']['UTCOffsetMinutes']),
+        'LastModifiedUTCDateTime':
+        matched['source']['LastModifiedUTCDateTime'],
+        'TimetabledEarliestDateTime':
+        matched['source']['TimetabledEarliestDateTime'],
+        'LocalizedStartTime': matched['journey']['LocalizedStartTime'],
     }
     return matched['source']['DepartureId'], d
 
@@ -426,7 +450,8 @@ class Poller:
             filter_=_create_filter(
                 cache_size=self._event_cache_size,
                 extract_cache_key_value=_extract_departure_id_and_event,
-                is_included=_check_event_for_inclusion),
+                is_included=_create_event_checker(
+                    self._pre_journey_prediction_threshold_in_seconds)),
             serialize=_create_event_serializer(self._event_mqtt_topic_mid),
             queue=self._queue)
         prediction_processor = _create_processor(
