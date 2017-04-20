@@ -73,7 +73,6 @@ def _create_event_checker(pre_journey_threshold_in_s):
         """Rule out uninteresting or erroneous events.
 
         Currently uninteresting or erroneous:
-        - Events that are not DEPARTED, MISSED, PASSED.
         - Trains as we should use predictions from the Finnish Transport
           Agency.
         - Events for the first stop sent too early in comparison to journey
@@ -88,8 +87,7 @@ def _create_event_checker(pre_journey_threshold_in_s):
         is_train = _is_train(current['JoreLineId'])
         # FIXME: Map integers to strings earlier and compare to strings here.
         state = current['State']
-        if (not (is_first_stop and is_given_early) and not is_train and
-                state in [9, 10, 11]):
+        if not (is_first_stop and is_given_early) and not is_train:
             if cached is None:
                 is_kept = True
             else:
