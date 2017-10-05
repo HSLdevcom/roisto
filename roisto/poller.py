@@ -211,6 +211,7 @@ def _arrange_prediction(matched):
         'joreLineId': journey['JoreLineId'],
         'joreLineDirection': journey['JoreDirection'],
         'journeyStartTime': start_time,
+        'stopOrderInJourney': source['JourneyPatternSequenceNumber'],
         'scheduledDepartureTime': scheduled_time,
         'predictedDepartureTime': predicted_time,
     }
@@ -233,6 +234,7 @@ def _arrange_event(matched):
         'joreLineId': journey['JoreLineId'],
         'joreLineDirection': journey['JoreDirection'],
         'journeyStartTime': start_time,
+        'stopOrderInJourney': source['JourneyPatternSequenceNumber'],
         'scheduledDepartureTime': scheduled_time,
         'event': event,
     }
@@ -325,6 +327,8 @@ class Poller:
             ) AS JourneyPatternPointGid,
             D.TimetabledEarliestDateTime,
             D.TargetDateTime,
+            CONVERT(SMALLINT, D.JourneyPatternSequenceNumber
+            ) AS JourneyPatternSequenceNumber,
             D.State,
             D.LastModifiedUTCDateTime
         FROM
