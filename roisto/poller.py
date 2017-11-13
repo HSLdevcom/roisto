@@ -176,10 +176,7 @@ def _minutes_to_hours_string(minutes):
 
 
 def _combine_into_timestamp(naive_datetime, utc_offset_minutes):
-    naive_string = naive_datetime.isoformat()
-    if '.' in naive_string:
-        # Do not show more than milliseconds.
-        naive_string = naive_string[:-3]
+    naive_string = naive_datetime.isoformat(timespec='milliseconds')
     return naive_string + _minutes_to_hours_string(utc_offset_minutes)
 
 
