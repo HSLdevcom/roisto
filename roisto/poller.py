@@ -223,19 +223,19 @@ def _arrange_event(matched):
 
     start_naive = journey['LocalizedStartTime']
     scheduled_naive = source['TimetabledEarliestDateTime']
-    event = DEPARTURE_STATES[source['State']]
+    state = DEPARTURE_STATES[source['State']]
     start_time = _combine_into_timestamp(start_naive, utc_offset)
     scheduled_time = _combine_into_timestamp(scheduled_naive, utc_offset)
-    prediction = {
+    event = {
         'joreStopId': stop,
         'joreLineId': journey['JoreLineId'],
         'joreLineDirection': journey['JoreDirection'],
         'journeyStartTime': start_time,
         'stopOrderInJourney': source['JourneyPatternSequenceNumber'],
         'scheduledDepartureTime': scheduled_time,
-        'event': event,
+        'event': state,
     }
-    return stop, prediction
+    return stop, event
 
 
 def _create_event_serializer(mqtt_topic_mid):
