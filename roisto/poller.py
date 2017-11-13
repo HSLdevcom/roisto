@@ -82,8 +82,7 @@ def _create_event_checker(pre_journey_threshold_in_s):
         is_given_early = (
             current['StartUTCDateTime'] - current['LastModifiedUTCDateTime']
         ).total_seconds() > pre_journey_threshold_in_s
-        is_first_stop = current['LocalizedStartTime'] == current[
-            'TimetabledEarliestDateTime']
+        is_first_stop = current['JourneyPatternSequenceNumber'] == 1
         is_train = _is_train(current['JoreLineId'])
         # FIXME: Map integers to strings earlier and compare to strings here.
         state = current['State']
@@ -108,6 +107,8 @@ def _extract_departure_id_and_event(matched):
         'TimetabledEarliestDateTime':
         matched['source']['TimetabledEarliestDateTime'],
         'LocalizedStartTime': matched['journey']['LocalizedStartTime'],
+        'JourneyPatternSequenceNumber':
+        matched['source']['JourneyPatternSequenceNumber'],
     }
     return matched['source']['DepartureId'], d
 
