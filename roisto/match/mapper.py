@@ -48,8 +48,8 @@ class Mapper:
             result = await self._update()
             self._mapping = self._parse(result)
             not_found_last_round = self._attempted.union(self._missing)
-            self._ignored = not_found_last_round.difference(self._mapping.keys(
-            ))
+            self._ignored = not_found_last_round.difference(
+                self._mapping.keys())
             self._attempted = set()
             self._missing = set()
             return True

@@ -24,8 +24,9 @@ def _create_parser():
         type=_load_yaml_file,
         default=_DEFAULT_CONFIG_FILENAME,
         metavar='YAML_FILE',
-        help='configuration file in YAML and UTF-8 (default: {filename})'.
-        format(filename=_DEFAULT_CONFIG_FILENAME))
+        help=
+        'configuration file in YAML and UTF-8 (default: {filename})'.format(
+            filename=_DEFAULT_CONFIG_FILENAME))
     return parser
 
 
