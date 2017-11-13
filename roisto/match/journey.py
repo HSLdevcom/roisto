@@ -25,7 +25,10 @@ _JOURNEY_QUERY = """
                 '1900-01-01',
                 VJ.PlannedStartOffsetDateTime),
             DVJ.OperatingDayDate
-        ) AS LocalizedStartTime
+        ) AS LocalizedStartTime,
+        DVJ.OperatingDayDate,
+        DATEDIFF(SECOND, '1900-01-01', VJ.PlannedStartOffsetDateTime
+        ) AS OffsetSeconds
     FROM
         DatedVehicleJourney AS DVJ,
         VehicleJourney AS VJ,

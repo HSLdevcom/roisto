@@ -200,6 +200,8 @@ def _arrange_prediction(matched):
     start_naive = journey['LocalizedStartTime']
     scheduled_naive = source['TimetabledEarliestDateTime']
     predicted_naive = source['TargetDateTime']
+    operating_day = journey['OperatingDayDate'].strftime('%Y-%m-%d')
+    seconds_since = journey['OffsetSeconds']
     start_time = _combine_into_timestamp(start_naive, utc_offset)
     scheduled_time = _combine_into_timestamp(scheduled_naive, utc_offset)
     predicted_time = _combine_into_timestamp(predicted_naive, utc_offset)
@@ -209,6 +211,8 @@ def _arrange_prediction(matched):
         'joreLineDirection': journey['JoreDirection'],
         'journeyStartTime': start_time,
         'stopOrderInJourney': source['JourneyPatternSequenceNumber'],
+        'operatingDay': operating_day,
+        'journeyStartInSecondsIntoOperatingDay': seconds_since,
         'scheduledDepartureTime': scheduled_time,
         'predictedDepartureTime': predicted_time,
     }
@@ -224,6 +228,8 @@ def _arrange_event(matched):
     start_naive = journey['LocalizedStartTime']
     scheduled_naive = source['TimetabledEarliestDateTime']
     state = DEPARTURE_STATES[source['State']]
+    operating_day = journey['OperatingDayDate'].strftime('%Y-%m-%d')
+    seconds_since = journey['OffsetSeconds']
     start_time = _combine_into_timestamp(start_naive, utc_offset)
     scheduled_time = _combine_into_timestamp(scheduled_naive, utc_offset)
     event = {
@@ -232,6 +238,8 @@ def _arrange_event(matched):
         'joreLineDirection': journey['JoreDirection'],
         'journeyStartTime': start_time,
         'stopOrderInJourney': source['JourneyPatternSequenceNumber'],
+        'operatingDay': operating_day,
+        'journeyStartInSecondsIntoOperatingDay': seconds_since,
         'scheduledDepartureTime': scheduled_time,
         'event': state,
     }
