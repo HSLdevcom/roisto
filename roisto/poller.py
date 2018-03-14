@@ -157,6 +157,11 @@ def _extract_departure_id_and_prediction(matched):
             'LastModifiedUTCDateTime',
         ]
     }
+    # Replace the prediction with an observation if available. TargetDateTime
+    # and ObservedDateTime have the same time zone.
+    observed = source['ObservedDateTime']
+    if observed is not None:
+        d['TargetDateTime'] = observed
     d['StartUTCDateTime'] = (
         matched['journey']['LocalizedStartTime'] - datetime.timedelta(
             minutes=matched['utc_offset']['UTCOffsetMinutes']))
@@ -334,6 +339,7 @@ class Poller:
             CONVERT(CHAR(16), D.IsTargetedAtJourneyPatternPointGid
             ) AS JourneyPatternPointGid,
             D.TimetabledEarliestDateTime,
+            D.ObservedDateTime,
             D.TargetDateTime,
             CONVERT(SMALLINT, D.JourneyPatternSequenceNumber
             ) AS JourneyPatternSequenceNumber,
