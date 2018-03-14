@@ -84,7 +84,6 @@ def _create_event_checker(pre_journey_threshold_in_s):
         ).total_seconds() > pre_journey_threshold_in_s
         is_first_stop = current['JourneyPatternSequenceNumber'] == 1
         is_train = _is_train(current['JoreLineId'])
-        # FIXME: Map integers to strings earlier and compare to strings here.
         state = current['State']
         if not (is_first_stop and is_given_early) and not is_train:
             if cached is None:
