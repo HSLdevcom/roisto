@@ -350,10 +350,7 @@ class Poller:
         WHERE
             D.LastModifiedUTCDateTime >= '{modified_utc}'
             AND D.LastModifiedUTCDateTime IS NOT NULL
-            AND (
-                D.IsTargetedAtJourneyPatternPointGid % 10000000 < 1999000
-                OR D.IsTargetedAtJourneyPatternPointGid % 10000000 > 1999999
-            )
+            AND D.IsTargetedAtJourneyPatternPointGid % 100000 < 99000
     """
 
     def __init__(self, config, loop, queue, is_mqtt_connected):
