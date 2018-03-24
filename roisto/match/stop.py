@@ -9,7 +9,7 @@ from roisto.match import mapper
 
 LOG = logging.getLogger(__name__)
 
-# 1999xxx should refer to via points. Mono does not care about them, so
+# xx99xxx should refer to via points. Mono does not care about them, so
 # avoid extra burden.
 #
 # ExistsFromDate and ExistsUptoDate do not matter as there is 1:1
@@ -22,8 +22,7 @@ _STOP_QUERY = """
     FROM
         JourneyPatternPoint
     WHERE
-        Number < 1999000
-        OR Number > 1999999
+        Number % 100000 < 99000
 """
 
 
