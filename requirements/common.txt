@@ -6,7 +6,8 @@
 #
 -e git+https://github.com/pymssql/pymssql.git@3bc299936fe2d35196dd4c9ebc8a22777f0c97e6#egg=pymssql
 cachetools==2.0.1
+cython==0.28.1
 isodate==0.6.0
 paho-mqtt==1.3.1
 pyyaml==3.12
-six==1.11.0               # via isodate
+six==1.11.0               # via isodate, six
