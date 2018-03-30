@@ -7,6 +7,7 @@ RUN apk --no-cache add --virtual build-dependencies build-base git
 COPY requirements/prod.txt requirements/
 
 RUN apk --no-cache add freetds freetds-dev \
+    && pip install Cython \
     && pip install -r requirements/prod.txt
 
 COPY source-for-build .
