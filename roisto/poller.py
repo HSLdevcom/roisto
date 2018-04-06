@@ -135,7 +135,9 @@ def _create_prediction_checker(pre_journey_threshold_in_s,
         ).total_seconds() > pre_journey_threshold_in_s
         is_predicted_early = current['TargetDateTime'] < current['TimetabledEarliestDateTime']
         is_train = _is_train(current['JoreLineId'])
-        if not is_train and not (is_given_early and is_predicted_early):
+        is_cancelled = DEPARTURE_STATES[current['State']] == 'CANCELLED'
+        if (not is_train and not (is_given_early and is_predicted_early)
+                and not is_cancelled):
             if cached is None:
                 is_kept = True
             else:
@@ -155,6 +157,7 @@ def _extract_departure_id_and_prediction(matched):
             'TimetabledEarliestDateTime',
             'TargetDateTime',
             'LastModifiedUTCDateTime',
+            'State',
         ]
     }
     # Replace the prediction with an observation if available. TargetDateTime
