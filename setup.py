@@ -14,7 +14,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='roisto',
-    version='0.0.1',
+    version='2.0.1',
     description='Poll predictions from PubTrans SQL and publish to MONO via MQTT.',
     long_description=long_description,
     url='https://github.com/hsldevcom/roisto',
